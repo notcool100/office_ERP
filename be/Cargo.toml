@@ -1,0 +1,35 @@
+[package]
+name = "be"
+version = "0.1.0"
+edition = "2024"
+default-run = "be"
+
+[dependencies]
+anyhow = "1.0.98"
+argon2 = "0.5.3"
+axum = { version = "0.8.4", features = ["tokio", "http2", "ws"] }
+chrono = { version = "0.4.41", features = ["serde"] }
+dotenvy = "0.15.7"
+jsonwebtoken = "9.3.1"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+sqlx = { version = "0.8.6", features = [
+  "macros",
+  "postgres",
+  "runtime-tokio-rustls",
+  "uuid",
+  "chrono",
+  "json",
+  "migrate",
+  "bigdecimal",
+] }
+thiserror = "2.0.12"
+tokio = { version = "1.45.0", features = ["full"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.4", features = ["cors", "trace"] }
+tracing = "0.1.41"
+tracing-log = "0.2.0"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
+uuid = { version = "1.17.0", features = ["serde", "v4"] }
+clap = { version = "4.5.4", features = ["derive"] }
+rand = "0.8"

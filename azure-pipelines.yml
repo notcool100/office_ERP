@@ -1,0 +1,23 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+- stage: build
+  jobs:
+  - job: build_backend
+    steps:
+    - script: |
+        cd backend
+        cargo build --verbose
+      displayName: 'Build backend'
+
+  - job: build_frontend
+    steps:
+    - script: |
+        cd frontend
+        npm install
+        npm run build
+      displayName: 'Build frontend'

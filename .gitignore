@@ -1,0 +1,18 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# Svelte
+/.svelte-kit
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
