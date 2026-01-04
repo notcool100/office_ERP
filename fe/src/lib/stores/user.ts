@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { PUBLIC_API_URL } from '$env/static/public';
 
 export const loggedIn = writable(false);
 export const accessToken = writable<string | null>(null);
@@ -12,7 +13,7 @@ if (typeof window !== 'undefined') {
 }
 
 export async function authenticate(userName: string, password: string) {
-    const res = await fetch('http://localhost:3117/auth/login', {
+    const res = await fetch(`${PUBLIC_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userName, password })

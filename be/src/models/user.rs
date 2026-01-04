@@ -11,5 +11,6 @@ pub struct User {
     pub email: String,
     pub phone: String,
     pub person_id: Uuid,
+    pub is_admin: bool,
     pub created_at: NaiveDateTime,
 }

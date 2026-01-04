@@ -7,7 +7,7 @@ use uuid::Uuid;
 pub struct Person {
     pub id: Uuid,
     pub first_name: String,
-    pub middle_name: String,
+    pub middle_name: Option<String>,
     pub last_name: String,
     pub created_at: NaiveDateTime,
 }

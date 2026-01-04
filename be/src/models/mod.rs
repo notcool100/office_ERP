@@ -1,5 +1,13 @@
+pub mod attendance;
+pub mod department;
+pub mod employee;
+pub mod intern;
+pub mod leave;
+pub mod navigation_item;
 pub mod person;
 pub mod person_contact;
+pub mod position;
 pub mod refresh_token;
+pub mod role_permission;
 pub mod service_response;
 pub mod user;

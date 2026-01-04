@@ -11,6 +11,7 @@ pub fn get_by_email(id: Uuid) -> Option<User> {
         user_name: "test_user".to_string(),
         phone: "9876543210".to_string(),
         person_id: Uuid::new_v4(),
+        is_admin: false, // Added this field
         created_at: NaiveDateTime::default(),
     })
 }
