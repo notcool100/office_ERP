@@ -1,5 +1,5 @@
 <script>
-    import '../app.css';
+    import '../../app.css';
     let open = false;
     const { children } = $props();
 </script>
@@ -9,8 +9,7 @@
         id="drawer-toggle"
         type="checkbox"
         class="drawer-toggle"
-        bind:checked={open}
-    />
+        bind:checked={open} />
     <div class="drawer-content flex flex-col overflow-y-auto">
         <!-- Header -->
         <div class="navbar bg-base-100/80 backdrop-blur shadow px-4">
@@ -21,14 +20,12 @@
                         class="h-6 w-6"
                         fill="none"
                         viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
+                        stroke="currentColor">
                         <path
                             stroke-linecap="round"
                             stroke-linejoin="round"
                             stroke-width="2"
-                            d="M4 6h16M4 12h16M4 18h16"
-                        />
+                            d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                 </label>
             </div>
@@ -40,8 +37,7 @@
                     <input
                         type="text"
                         placeholder="Search"
-                        class="input input-bordered w-24 md:w-auto"
-                    />
+                        class="input input-bordered w-24 md:w-auto" />
                 </div>
                 <div class="dropdown dropdown-end">
                     <label tabIndex={0} class="btn btn-ghost btn-circle avatar">
@@ -61,7 +57,8 @@
 
     <div class="drawer-side">
         <label for="drawer-toggle" class="drawer-overlay"></label>
-        <aside class="menu p-4 w-80 bg-gradient-to-b from-base-200 to-base-100 text-base-content overflow-y-auto shadow-lg">
+        <aside
+            class="menu p-4 w-80 bg-gradient-to-b from-base-200 to-base-100 text-base-content overflow-y-auto shadow-lg">
             <p class="text-lg font-bold mb-4">Overview</p>
             <ul class="menu">
                 <li><a class="active">App</a></li>

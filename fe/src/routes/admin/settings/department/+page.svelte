@@ -1,94 +1,106 @@
 <script lang="ts">
-	import { breadcrumb } from '$lib/stores/breadcrumb';
-	import { pageTitle } from '$lib/stores/page-title';
-	import { Home, Settings, Building2, Plus, Edit, Trash2 } from 'lucide-svelte';
-	import { onMount } from 'svelte';
-	import PageSection from '../../../../components/PageSection.svelte';
-	import { departmentService, type Department } from '$lib/services/department';
+    import { breadcrumb } from '$lib/stores/breadcrumb';
+    import { pageTitle } from '$lib/stores/page-title';
+    import {
+        Home,
+        Settings,
+        Building2,
+        Plus,
+        Edit,
+        Trash2,
+    } from 'lucide-svelte';
+    import { onMount } from 'svelte';
+    import PageSection from '../../../../components/PageSection.svelte';
+    import {
+        departmentService,
+        type Department,
+    } from '$lib/services/department';
 
-	page Title.set({
-		title: 'Departments',
-		desc: 'Manage organizational departments'
-	});
+    pageTitle.set({
+        title: 'Departments',
+        desc: 'Manage organizational departments',
+    });
 
-	breadcrumb.set([
-		{ label: 'Home', icon: Home },
-		{ label: 'Settings', icon: Settings },
-		{ label: 'Departments', icon: Building2 }
-	]);
+    breadcrumb.set([
+        { label: 'Home', icon: Home },
+        { label: 'Settings', icon: Settings },
+        { label: 'Departments', icon: Building2 },
+    ]);
 
-	let departments: Department[] = [];
-	let loading = true;
-	let showModal = false;
-	let editingDepartment: Department | null = null;
-	let formData = {
-		name: '',
-		description: ''
-	};
+    let departments: Department[] = [];
+    let loading = true;
+    let showModal = false;
+    let editingDepartment: Department | null = null;
+    let formData = {
+        name: '',
+        description: '',
+    };
 
-	async function loadDepartments() {
-		loading = true;
-		try {
-			departments = await departmentService.getAll();
-		} catch (error) {
-			console.error('Failed to load departments:', error);
-		} finally {
-			loading = false;
-		}
-	}
+    async function loadDepartments() {
+        loading = true;
+        try {
+            departments = await departmentService.getAll();
+        } catch (error) {
+            console.error('Failed to load departments:', error);
+        } finally {
+            loading = false;
+        }
+    }
 
-	function openCreateModal() {
-		editingDepartment = null;
-		formData = { name: '', description: '' };
-		showModal = true;
-	}
+    function openCreateModal() {
+        editingDepartment = null;
+        formData = { name: '', description: '' };
+        showModal = true;
+    }
 
-	function openEditModal(dept: Department) {
-		editingDepartment = dept;
-		formData = {
-			name: dept.name,
-			description: dept.description || ''
-		};
-		showModal = true;
-	}
+    function openEditModal(dept: Department) {
+        editingDepartment = dept;
+        formData = {
+            name: dept.name,
+            description: dept.description || '',
+        };
+        showModal = true;
+    }
 
-	async function handleSubmit() {
-		try {
-			if (editingDepartment) {
-				await departmentService.update(editingDepartment.id, formData);
-			} else {
-				await departmentService.create(formData);
-			}
-			showModal = false;
-			await loadDepartments();
-		} catch (error) {
-			console.error('Failed to save department:', error);
-		}
-	}
+    async function handleSubmit() {
+        try {
+            if (editingDepartment) {
+                await departmentService.update(editingDepartment.id, formData);
+            } else {
+                await departmentService.create(formData);
+            }
+            showModal = false;
+            await loadDepartments();
+        } catch (error) {
+            console.error('Failed to save department:', error);
+        }
+    }
 
-	async function handleDelete(id: string) {
-		if (confirm('Are you sure you want to delete this department?')) {
-			try {
-				await departmentService.delete(id);
-				await loadDepartments();
-			} catch (error) {
-				console.error('Failed to delete department:', error);
-			}
-		}
-	}
+    async function handleDelete(id: string) {
+        if (confirm('Are you sure you want to delete this department?')) {
+            try {
+                await departmentService.delete(id);
+                await loadDepartments();
+            } catch (error) {
+                console.error('Failed to delete department:', error);
+            }
+        }
+    }
 
-	async function toggleActive(dept: Department) {
-		try {
-			await departmentService.update(dept.id, { is_active: !dept.is_active });
-			await loadDepartments();
-		} catch (error) {
-			console.error('Failed to toggle department status:', error);
-		}
-	}
+    async function toggleActive(dept: Department) {
+        try {
+            await departmentService.update(dept.id, {
+                is_active: !dept.is_active,
+            });
+            await loadDepartments();
+        } catch (error) {
+            console.error('Failed to toggle department status:', error);
+        }
+    }
 
-	onMount(() => {
-		loadDepartments();
-	});
+    onMount(() => {
+        loadDepartments();
+    });
 </script>
 
 <PageSection>
