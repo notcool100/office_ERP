@@ -254,3 +254,27 @@ fn map_employee_to_response(emp: EmployeeWithPerson) -> EmployeeResponse {
         status: emp.status,
     }
 }
+
+pub async fn update_face_descriptor(db: &Db, id: Uuid, descriptor: String) -> Result<()> {
+    let result = sqlx::query("UPDATE employees SET face_descriptor = $1, updated_at = NOW() WHERE id = $2")
+        .bind(descriptor)
+        .bind(id)
+        .execute(db)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(anyhow!("Employee not found"));
+    }
+
+    Ok(())
+}
+
+pub async fn get_all_face_descriptors(db: &Db) -> Result<Vec<(String, String)>> {
+    let rows = sqlx::query_as::<_, (String, String)>(
+        "SELECT employee_id, face_descriptor FROM employees WHERE face_descriptor IS NOT NULL AND status = 'active'"
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(rows)
+}
+

@@ -160,7 +160,7 @@ stages:
         
         if [ -d "$(System.DefaultWorkingDirectory)/artifacts/backend" ]; then
           sudo cp -r $(System.DefaultWorkingDirectory)/artifacts/backend/. $TARGET_DIR/
-          sudo chmod +x $TARGET_DIR/be
+          sudo chmod +x $TARGET_DIR
           sudo chown -R www-data:www-data $TARGET_DIR
           echo "✅ Backend files deployed"
         else

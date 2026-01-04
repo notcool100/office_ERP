@@ -17,6 +17,7 @@ pub struct Employee {
     pub status: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub face_descriptor: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]

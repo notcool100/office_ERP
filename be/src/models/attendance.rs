@@ -15,6 +15,10 @@ pub struct AttendanceRecord {
     pub notes: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub check_in_image: Option<String>,
+    pub check_in_method: String,
+    pub check_in_lat: Option<sqlx::types::BigDecimal>,
+    pub check_in_long: Option<sqlx::types::BigDecimal>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -30,4 +34,8 @@ pub struct AttendanceWithEmployee {
     pub notes: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub check_in_image: Option<String>,
+    pub check_in_method: String,
+    pub check_in_lat: Option<sqlx::types::BigDecimal>,
+    pub check_in_long: Option<sqlx::types::BigDecimal>,
 }

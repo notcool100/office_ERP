@@ -40,14 +40,19 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     let attendance = sqlx::query_as::<_, AttendanceWithEmployee>(
         r#"
         WITH new_attendance AS (
-            INSERT INTO attendance_records (employee_id, date, check_in, status, notes, created_at, updated_at)
-            VALUES ($1, $2, NOW(), 'present', $3, NOW(), NOW())
+            INSERT INTO attendance_records (
+                employee_id, date, check_in, status, notes, 
+                check_in_image, check_in_method, check_in_lat, check_in_long,
+                created_at, updated_at
+            )
+            VALUES ($1, $2, NOW(), 'present', $3, $4, $5, $6, $7, NOW(), NOW())
             RETURNING *
         )
         SELECT na.id, na.employee_id,
                CONCAT(p.first_name, ' ', p.last_name) as employee_name,
                na.date, na.check_in, na.check_out, na.total_hours,
-               na.status, na.notes, na.created_at, na.updated_at
+               na.status, na.notes, na.created_at, na.updated_at,
+               na.check_in_image, na.check_in_method, na.check_in_lat, na.check_in_long
         FROM new_attendance na
         JOIN employees e ON e.id = na.employee_id
         JOIN persons p ON p.id = e.person_id
@@ -56,6 +61,10 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     .bind(employee_uuid)
     .bind(today)
     .bind(&req.notes)
+    .bind(&req.image)
+    .bind(req.method.unwrap_or_else(|| "MANUAL".to_string()))
+    .bind(req.latitude.map(|l| BigDecimal::from_str(&l.to_string()).ok()).flatten())
+    .bind(req.longitude.map(|l| BigDecimal::from_str(&l.to_string()).ok()).flatten())
     .fetch_one(db)
     .await?;
 
@@ -252,5 +261,8 @@ fn map_attendance_to_response(att: AttendanceWithEmployee) -> AttendanceResponse
         total_hours: att.total_hours.and_then(|h| h.to_string().parse().ok()),
         status: att.status,
         notes: att.notes,
+        check_in_image: att.check_in_image,
+        check_in_lat: att.check_in_lat.and_then(|h| h.to_string().parse().ok()),
+        check_in_long: att.check_in_long.and_then(|h| h.to_string().parse().ok()),
     }
 }

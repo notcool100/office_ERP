@@ -13,6 +13,10 @@ export interface AttendanceRecord {
 export interface CheckInRequest {
     employeeId: string;
     notes?: string;
+    image?: string;
+    latitude?: number;
+    longitude?: number;
+    method?: string;
 }
 
 export interface CheckOutRequest {

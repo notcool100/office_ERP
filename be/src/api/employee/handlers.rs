@@ -1,6 +1,6 @@
 use crate::{
     api::employee::{
-        dto::{CreateEmployeeRequest, ListEmployeesQuery, UpdateEmployeeRequest},
+        dto::{CreateEmployeeRequest, ListEmployeesQuery, UpdateEmployeeRequest, UpdateFaceDescriptorRequest},
         service,
     },
     db::Db,
@@ -70,3 +70,27 @@ pub async fn delete_employee_handler(
         Json(json!({"message": "Employee deleted successfully"})),
     ))
 }
+
+pub async fn update_face_descriptor_handler(
+    Extension(db): Extension<Db>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateFaceDescriptorRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    service::update_face_descriptor(&db, id, payload.descriptor)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    Ok((
+        StatusCode::OK,
+        Json(json!({"message": "Face descriptor updated successfully"})),
+    ))
+}
+
+pub async fn list_face_descriptors_handler(
+    Extension(db): Extension<Db>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    let descriptors = service::get_all_face_descriptors(&db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((StatusCode::OK, Json(json!(descriptors))))
+}
+

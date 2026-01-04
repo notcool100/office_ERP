@@ -85,3 +85,27 @@ export async function deleteEmployee(id: string): Promise<void> {
         throw new Error('Failed to delete employee');
     }
 }
+
+export async function updateFaceDescriptor(id: string, descriptor: Float32Array): Promise<void> {
+    const res = await fetch(`${PUBLIC_API_URL}/employees/${id}/face-descriptor`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ descriptor: JSON.stringify(Array.from(descriptor)) })
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to update face descriptor');
+    }
+}
+
+export async function getAllFaceDescriptors(): Promise<[string, string][]> {
+    const res = await fetch(`${PUBLIC_API_URL}/employees/config/descriptors`, {
+        headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch face descriptors');
+    }
+
+    return await res.json();
+}

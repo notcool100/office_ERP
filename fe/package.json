@@ -63,6 +63,7 @@
         "@inlang/paraglide-js": "^2.0.0",
         "d3-array": "^3.2.4",
         "d3-scale": "^4.0.2",
+        "face-api.js": "^0.22.2",
         "layerchart": "^1.0.11",
         "lucide-svelte": "^0.522.0"
     },

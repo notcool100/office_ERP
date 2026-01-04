@@ -7,6 +7,10 @@ use uuid::Uuid;
 pub struct CheckInRequest {
     pub employee_id: String,
     pub notes: Option<String>,
+    pub image: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub method: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +31,9 @@ pub struct AttendanceResponse {
     pub total_hours: Option<f64>,
     pub status: String,
     pub notes: Option<String>,
+    pub check_in_image: Option<String>,
+    pub check_in_lat: Option<f64>,
+    pub check_in_long: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

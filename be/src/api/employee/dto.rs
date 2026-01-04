@@ -64,3 +64,9 @@ pub struct ListEmployeesResponse {
     pub page: i64,
     pub page_size: i64,
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateFaceDescriptorRequest {
+    pub descriptor: String,
+}
