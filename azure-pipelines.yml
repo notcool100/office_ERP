@@ -1,23 +1,227 @@
 trigger:
-- main
+  branches:
+    include:
+      - main
+      - master
 
 pool:
-  vmImage: 'ubuntu-latest'
+  name: 'Astro'
+
+variables:
+  buildConfiguration: 'Release'
 
 stages:
-- stage: build
+- stage: Build_Backend
+  displayName: "Build Rust Backend"
   jobs:
-  - job: build_backend
+  - job: Backend
     steps:
     - script: |
-        cd backend
-        cargo build --verbose
-      displayName: 'Build backend'
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source $HOME/.cargo/env
+      displayName: "Install Rust"
+    
+    # Download backend.env from Secure Files
+    - task: DownloadSecureFile@1
+      name: backendEnv
+      displayName: 'Download backend.env'
+      inputs:
+        secureFile: 'backend.env'
+    
+    - script: |
+        echo "Building backend..."
+        cd be
+        source $HOME/.cargo/env
+        cargo build --release
+        
+        echo "✅ Backend built successfully"
+      displayName: "Build Backend"
 
-  - job: build_frontend
-    steps:
     - script: |
-        cd frontend
-        npm install
-        npm run build
-      displayName: 'Build frontend'
+        echo "Preparing backend artifacts..."
+        mkdir -p $(Build.ArtifactStagingDirectory)/backend
+        cp be/target/release/be $(Build.ArtifactStagingDirectory)/backend/
+        
+        # Copy backend.env to .env
+        cp $(backendEnv.secureFilePath) $(Build.ArtifactStagingDirectory)/backend/.env
+        
+        echo "Artifacts content:"
+        ls -la $(Build.ArtifactStagingDirectory)/backend
+      displayName: "Prepare Backend Artifacts"
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        artifactName: 'backend'
+        pathToPublish: '$(Build.ArtifactStagingDirectory)/backend'
+
+- stage: Build_Frontend
+  displayName: "Build Svelte Frontend"
+  jobs:
+  - job: Frontend
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '20.x'
+
+    - script: |
+        echo "=== Installing pnpm ==="
+        npm install -g pnpm
+      displayName: "Install pnpm"
+
+    # Download frontend.env from Secure Files
+    - task: DownloadSecureFile@1
+      name: frontendEnv
+      displayName: 'Download frontend.env'
+      inputs:
+        secureFile: 'frontend.env'
+
+    - script: |
+        echo "=== Installing Dependencies ==="
+        cd fe
+        pnpm install --no-frozen-lockfile
+      displayName: "Install Dependencies"
+
+    - script: |
+        echo "=== Building Svelte App ==="
+        cd fe
+        
+        # Copy frontend.env to .env before build so values are baked in if needed
+        cp $(frontendEnv.secureFilePath) .env
+        
+        pnpm run build
+      displayName: "Build Svelte Application"
+
+    - script: |
+        echo "=== Verifying Build Output ==="
+        cd fe
+        if [ -d "build" ]; then
+          echo "✅ Found 'build' directory."
+        else
+          echo "❌ 'build' directory not found!"
+          exit 1
+        fi
+      displayName: "Verify Build Output"
+
+    - script: |
+        echo "=== Preparing Frontend Artifacts ==="
+        mkdir -p $(Build.ArtifactStagingDirectory)/frontend
+        
+        # Copy build output
+        cp -r fe/build $(Build.ArtifactStagingDirectory)/frontend/
+        
+        # Copy package files
+        cp fe/package.json $(Build.ArtifactStagingDirectory)/frontend/
+        cp fe/pnpm-lock.yaml $(Build.ArtifactStagingDirectory)/frontend/
+        
+        # Also include the .env file in artifacts for the runtime
+        cp fe/.env $(Build.ArtifactStagingDirectory)/frontend/
+        
+        echo "Artifacts content:"
+        ls -la $(Build.ArtifactStagingDirectory)/frontend
+      displayName: "Prepare Frontend Artifacts"
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        artifactName: 'frontend'
+        pathToPublish: '$(Build.ArtifactStagingDirectory)/frontend'
+
+- stage: Deploy
+  displayName: "Deploy on VPS"
+  dependsOn:
+    - Build_Backend
+    - Build_Frontend
+  condition: succeeded()
+  jobs:
+  - job: DeployJob
+    displayName: "Copy Files & Restart Services"
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'backend'
+        downloadPath: '$(System.DefaultWorkingDirectory)/artifacts'
+
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'frontend'
+        downloadPath: '$(System.DefaultWorkingDirectory)/artifacts'
+
+    # Deploy Backend
+    - script: |
+        echo "=== Deploying Backend ==="
+        # Stop service first
+        sudo systemctl stop ubuck-erp-backend || echo "Backend service was not running"
+        
+        TARGET_DIR="/var/www/ubuck-erp/be"
+        sudo mkdir -p $TARGET_DIR
+        
+        if [ -d "$(System.DefaultWorkingDirectory)/artifacts/backend" ]; then
+          sudo cp -r $(System.DefaultWorkingDirectory)/artifacts/backend/. $TARGET_DIR/
+          sudo chmod +x $TARGET_DIR/be
+          sudo chown -R www-data:www-data $TARGET_DIR
+          echo "✅ Backend files deployed"
+        else
+          echo "❌ No backend artifacts found!"
+          exit 1
+        fi
+        
+        # Restart backend service
+        sudo systemctl daemon-reload
+        sudo systemctl enable ubuck-erp-backend
+        sudo systemctl start ubuck-erp-backend
+        
+        echo "Backend service status:"
+        sudo systemctl status ubuck-erp-backend --no-pager | head -10
+      displayName: "Deploy Backend"
+
+    # Deploy Frontend
+    - script: |
+        echo "=== Deploying Frontend ==="
+        # Stop service first
+        sudo systemctl stop ubuck-erp-frontend || echo "Frontend service was not running"
+        
+        TARGET_DIR="/var/www/ubuck-erp/fe"
+        sudo mkdir -p $TARGET_DIR
+        
+        # Clean current files
+        sudo rm -rf $TARGET_DIR/*
+        
+        if [ -d "$(System.DefaultWorkingDirectory)/artifacts/frontend" ]; then
+          sudo cp -r $(System.DefaultWorkingDirectory)/artifacts/frontend/. $TARGET_DIR/
+          echo "✅ Frontend files copied"
+        else
+          echo "❌ No frontend artifacts found!"
+          exit 1
+        fi
+        
+        # Install production dependencies
+        echo "Installing production dependencies..."
+        cd $TARGET_DIR
+        if ! command -v pnpm &> /dev/null; then
+            echo "Installing pnpm..."
+            sudo npm install -g pnpm
+        fi
+        
+        sudo pnpm install --prod
+        
+        # Set permission
+        sudo chown -R www-data:www-data $TARGET_DIR
+        
+        # Restart frontend service
+        sudo systemctl daemon-reload
+        sudo systemctl enable ubuck-erp-frontend
+        sudo systemctl start ubuck-erp-frontend
+        
+        echo "Frontend service status:"
+        sudo systemctl status ubuck-erp-frontend --no-pager | head -10
+      displayName: "Deploy Frontend"
+
+    - script: |
+        echo "=== Verify Nginx ==="
+        sudo systemctl is-active nginx
+        sudo nginx -t
+        sudo systemctl reload nginx
+      displayName: "Reload Nginx"
