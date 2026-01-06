@@ -45,7 +45,7 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
                 check_in_image, check_in_method, check_in_lat, check_in_long,
                 created_at, updated_at
             )
-            VALUES ($1, $2, NOW(), 'present', $3, $4, $5, $6, $7, NOW(), NOW())
+            VALUES ($1, $2, $8, 'present', $3, $4, $5, $6, $7, NOW(), NOW())
             RETURNING *
         )
         SELECT na.id, na.employee_id,
@@ -65,6 +65,7 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     .bind(req.method.unwrap_or_else(|| "MANUAL".to_string()))
     .bind(req.latitude.map(|l| BigDecimal::from_str(&l.to_string()).ok()).flatten())
     .bind(req.longitude.map(|l| BigDecimal::from_str(&l.to_string()).ok()).flatten())
+    .bind(Local::now().naive_local())
     .fetch_one(db)
     .await?;
 
@@ -121,25 +122,26 @@ pub async fn get_attendance_records(
     let offset = (page - 1) * page_size;
 
     let mut where_clauses: Vec<String> = vec!["1=1".to_string()];
-    let mut param_count = 3;
+    let mut param_index = 1;
 
     if query.employee_id.is_some() {
-        where_clauses.push(format!("ar.employee_id = ${}", param_count));
-        param_count += 1;
+        where_clauses.push(format!("ar.employee_id = ${}", param_index));
+        param_index += 1;
     }
 
     if query.start_date.is_some() {
-        where_clauses.push(format!("ar.date >= ${}", param_count));
-        param_count += 1;
+        where_clauses.push(format!("ar.date >= ${}", param_index));
+        param_index += 1;
     }
 
     if query.end_date.is_some() {
-        where_clauses.push(format!("ar.date <= ${}", param_count));
-        param_count += 1;
+        where_clauses.push(format!("ar.date <= ${}", param_index));
+        param_index += 1;
     }
 
     if query.status.is_some() {
-        where_clauses.push(format!("ar.status = ${}", param_count));
+        where_clauses.push(format!("ar.status = ${}", param_index));
+        param_index += 1;
     }
 
     let where_sql = where_clauses.join(" AND ");
@@ -150,21 +152,20 @@ pub async fn get_attendance_records(
         SELECT ar.id, ar.employee_id,
                CONCAT(p.first_name, ' ', p.last_name) as employee_name,
                ar.date, ar.check_in, ar.check_out, ar.total_hours,
-               ar.status, ar.notes, ar.created_at, ar.updated_at
+               ar.status, ar.notes, ar.created_at, ar.updated_at,
+               ar.check_in_image, ar.check_in_method, ar.check_in_lat, ar.check_in_long
         FROM attendance_records ar
         JOIN employees e ON e.id = ar.employee_id
         JOIN persons p ON p.id = e.person_id
         WHERE {}
         ORDER BY ar.date DESC, ar.created_at DESC
-        LIMIT $1 OFFSET $2
+        LIMIT ${} OFFSET ${}
         "#,
-        where_sql
+        where_sql, param_index, param_index + 1
     );
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
-    let mut select_q = sqlx::query_as::<_, AttendanceWithEmployee>(&select_query)
-        .bind(page_size)
-        .bind(offset);
+    let mut select_q = sqlx::query_as::<_, AttendanceWithEmployee>(&select_query);
 
     if let Some(emp_id) = query.employee_id {
         count_q = count_q.bind(emp_id);
@@ -185,6 +186,8 @@ pub async fn get_attendance_records(
         count_q = count_q.bind(status);
         select_q = select_q.bind(status);
     }
+
+    select_q = select_q.bind(page_size).bind(offset);
 
     let total = count_q.fetch_one(db).await?;
     let records = select_q.fetch_all(db).await?;

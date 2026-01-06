@@ -24,10 +24,11 @@ async fn main() {
 
     let db_pool = init_pool().await.expect("Failed to init DB pool");
 
+    use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, ACCEPT};
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT]);
 
     let app = build_routes()
         .layer(middleware::add_extensions(db_pool))

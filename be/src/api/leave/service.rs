@@ -82,25 +82,26 @@ pub async fn list_leave_requests(
     let offset = (page - 1) * page_size;
 
     let mut where_clauses: Vec<String> = vec!["1=1".to_string()];
-    let mut param_count = 3;
+    let mut param_index = 1;
 
     if query.employee_id.is_some() {
-        where_clauses.push(format!("lr.employee_id = ${}", param_count));
-        param_count += 1;
+        where_clauses.push(format!("lr.employee_id = ${}", param_index));
+        param_index += 1;
     }
 
     if query.status.is_some() {
-        where_clauses.push(format!("lr.status = ${}", param_count));
-        param_count += 1;
+        where_clauses.push(format!("lr.status = ${}", param_index));
+        param_index += 1;
     }
 
     if query.start_date.is_some() {
-        where_clauses.push(format!("lr.start_date >= ${}", param_count));
-        param_count += 1;
+        where_clauses.push(format!("lr.start_date >= ${}", param_index));
+        param_index += 1;
     }
 
     if query.end_date.is_some() {
-        where_clauses.push(format!("lr.end_date <= ${}", param_count));
+        where_clauses.push(format!("lr.end_date <= ${}", param_index));
+        param_index += 1;
     }
 
     let where_sql = where_clauses.join(" AND ");
@@ -123,15 +124,13 @@ pub async fn list_leave_requests(
         LEFT JOIN persons ap ON ap.id = u.person_id
         WHERE {}
         ORDER BY lr.created_at DESC
-        LIMIT $1 OFFSET $2
+        LIMIT ${} OFFSET ${}
         "#,
-        where_sql
+        where_sql, param_index, param_index + 1
     );
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
-    let mut select_q = sqlx::query_as::<_, LeaveRequestWithDetails>(&select_query)
-        .bind(page_size)
-        .bind(offset);
+    let mut select_q = sqlx::query_as::<_, LeaveRequestWithDetails>(&select_query);
 
     if let Some(emp_id) = query.employee_id {
         count_q = count_q.bind(emp_id);
@@ -152,6 +151,9 @@ pub async fn list_leave_requests(
         count_q = count_q.bind(end_date);
         select_q = select_q.bind(end_date);
     }
+
+    // Bind limit/offset only to select_q
+    select_q = select_q.bind(page_size).bind(offset);
 
     let total = count_q.fetch_one(db).await?;
     let requests = select_q.fetch_all(db).await?;

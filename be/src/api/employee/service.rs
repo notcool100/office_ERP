@@ -104,8 +104,40 @@ pub async fn list_employees(
     let offset = (page - 1) * page_size;
 
     let mut conditions: Vec<String> = vec!["1=1".to_string()];
-    let mut count_query = "SELECT COUNT(*) FROM employees e".to_string();
-    let mut select_query = format!(
+    let mut param_index = 1;
+
+    if query.department.is_some() {
+        conditions.push(format!("e.department_id = ${}", param_index));
+        param_index += 1;
+    }
+
+    if query.status.is_some() {
+        conditions.push(format!("e.status = ${}", param_index));
+        param_index += 1;
+    }
+
+    if let Some(_search) = &query.search {
+        conditions.push(format!(
+            "(p.first_name ILIKE ${0} OR p.last_name ILIKE ${0} OR e.employee_id ILIKE ${0})",
+            param_index
+        ));
+        param_index += 1;
+    }
+
+    let where_clause = conditions.join(" AND ");
+
+    let count_query = format!(
+        r#"
+        SELECT COUNT(*)
+        FROM employees e
+        JOIN persons p ON p.id = e.person_id
+        LEFT JOIN person_contacts pc ON pc.person_id = p.id
+        WHERE {}
+        "#,
+        where_clause
+    );
+
+    let select_query = format!(
         r#"
         SELECT e.id, e.employee_id, e.person_id, 
                p.first_name, p.middle_name, p.last_name,
@@ -116,42 +148,15 @@ pub async fn list_employees(
         FROM employees e
         JOIN persons p ON p.id = e.person_id
         LEFT JOIN person_contacts pc ON pc.person_id = p.id
-        WHERE 1=1
-        "#
-    );
-
-    if query.department.is_some() {
-        conditions.push("e.department_id = $3".to_string());
-    }
-
-    if query.status.is_some() {
-        let idx = if query.department.is_some() { 4 } else { 3 };
-        conditions.push(format!("e.status = ${}", idx));
-    }
-
-    if let Some(_search) = &query.search {
-        let idx = 3 + conditions.len() as i32 - 1;
-        conditions.push(format!(
-            "(p.first_name ILIKE ${0} OR p.last_name ILIKE ${0} OR e.employee_id ILIKE ${0})",
-            idx
-        ));
-    }
-
-    if conditions.len() > 1 {
-        let where_clause = format!(" AND {}", conditions[1..].join(" AND "));
-        count_query = format!("{} {}", count_query, where_clause);
-        select_query = format!("{} {}", select_query, where_clause);
-    }
-
-    select_query = format!(
-        "{} ORDER BY e.created_at DESC LIMIT $1 OFFSET $2",
-        select_query
+        WHERE {}
+        ORDER BY e.created_at DESC
+        LIMIT ${} OFFSET ${}
+        "#,
+        where_clause, param_index, param_index + 1
     );
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
-    let mut select_q = sqlx::query_as::<_, EmployeeWithPerson>(&select_query)
-        .bind(page_size)
-        .bind(offset);
+    let mut select_q = sqlx::query_as::<_, EmployeeWithPerson>(&select_query);
 
     if let Some(dept) = &query.department {
         count_q = count_q.bind(dept);
@@ -168,6 +173,9 @@ pub async fn list_employees(
         count_q = count_q.bind(pattern);
         select_q = select_q.bind(pattern);
     }
+
+    // Bind limit/offset only to select_q
+    select_q = select_q.bind(page_size).bind(offset);
 
     let total = count_q.fetch_one(db).await?;
     let employees = select_q.fetch_all(db).await?;

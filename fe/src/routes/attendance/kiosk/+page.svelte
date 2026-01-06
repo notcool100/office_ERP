@@ -128,6 +128,8 @@
             // Capture Image Snapshot (optional, for logs)
             const snapshot = captureImage();
 
+            console.log('CheckIn Location:', lat, long);
+
             await checkIn({
                 employeeId: emp ? emp.employeeId : employeeId, // API expects String Code or UUID? checkIn expects 'employeeId' string code usually?
                 // Wait, backend 'req.employee_id' matches 'employees.employee_id'.
@@ -141,16 +143,25 @@
 
                 method: 'FACE',
                 image: snapshot,
-                latitude: lat,
-                longitude: long,
+                latitude: lat || undefined,
+                longitude: long || undefined,
             });
+
+            if (!lat || !long) {
+                console.warn('Check-in sent without location data.');
+            }
 
             flashMessage = `Welcome, ${name}! Checked In.`;
             flashType = 'success';
             lastCheckInTime = Date.now();
             status = 'Checked In Successfully.';
         } catch (e: any) {
-            console.error(e);
+            console.error('Check-in Error:', e);
+            if (e.response) {
+                // If it's a fetch/axios error with response
+                console.error('Response Status:', e.response.status);
+                console.error('Response Data:', await e.response.text()); // Or .json()
+            }
             flashMessage = `Check-in Failed: ${e.message || 'Unknown Error'}`;
             flashType = 'error';
         } finally {
@@ -162,12 +173,37 @@
         }
     }
 
-    function getCurrentPosition() {
-        return new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 5000,
+    async function getCurrentPosition() {
+        try {
+            return await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    timeout: 5000,
+                });
             });
-        });
+        } catch (e) {
+            console.warn('GPS failed, falling back to IP location...', e);
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (!res.ok) throw new Error('IP Geo failed');
+                const data = await res.json();
+                // Construct a mock GeolocationPosition
+                return {
+                    coords: {
+                        latitude: data.latitude,
+                        longitude: data.longitude,
+                        accuracy: 1000,
+                        altitude: null,
+                        altitudeAccuracy: null,
+                        heading: null,
+                        speed: null,
+                    },
+                    timestamp: Date.now(),
+                } as GeolocationPosition;
+            } catch (ipError) {
+                console.error('IP fallback failed:', ipError);
+                throw e; // Throw original error if fallback fails
+            }
+        }
     }
 
     function captureImage() {
