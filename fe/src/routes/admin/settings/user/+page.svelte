@@ -2,7 +2,13 @@
     import { onMount } from 'svelte';
     import { breadcrumb } from '$lib/stores/breadcrumb';
     import { pageTitle } from '$lib/stores/page-title';
-    import { Home, Settings, User as UserIcon, Plus, Loader2 } from 'lucide-svelte';
+    import {
+        Home,
+        Settings,
+        User as UserIcon,
+        Plus,
+        Loader2,
+    } from 'lucide-svelte';
     import PageSection from '../../../../components/PageSection.svelte';
     import { userService } from '$lib/services/user-service';
     import { personService } from '$lib/services/person';
@@ -12,13 +18,13 @@
 
     pageTitle.set({
         title: 'User Management',
-        desc: 'Manage system users and access.'
+        desc: 'Manage system users and access.',
     });
 
     breadcrumb.set([
         { label: 'Home', icon: Home },
         { label: 'Settings', icon: Settings },
-        { label: 'User', icon: UserIcon }
+        { label: 'User', icon: UserIcon },
     ]);
 
     let users: User[] = [];
@@ -34,7 +40,7 @@
         password: '',
         email: '',
         phone: '',
-        isAdmin: false
+        isAdmin: false,
     };
 
     async function loadData() {
@@ -42,7 +48,7 @@
         try {
             const [usersData, personsData] = await Promise.all([
                 userService.getAll(),
-                personService.getAll({ pageSize: 100 })
+                personService.getAll({ pageSize: 100 }),
             ]);
             users = usersData;
             persons = personsData.persons;
@@ -55,13 +61,17 @@
 
     // Auto-fill email/phone when person is selected
     function onPersonSelect() {
-        const selectedPerson = persons.find(p => p.id === formData.personId);
+        const selectedPerson = persons.find((p) => p.id === formData.personId);
         if (selectedPerson) {
             formData.email = selectedPerson.email || '';
             formData.phone = selectedPerson.phone || '';
             // Generate a default username if empty
             if (!formData.userName) {
-                 formData.userName = (selectedPerson.first_name + (selectedPerson.last_name || '')).toLowerCase().replace(/\s/g, '');
+                formData.userName = (
+                    selectedPerson.first_name + (selectedPerson.last_name || '')
+                )
+                    .toLowerCase()
+                    .replace(/\s/g, '');
             }
         }
     }
@@ -75,7 +85,9 @@
             resetForm();
             await loadData();
         } catch (e: any) {
-             errorMessage = e.message || 'Failed to create user. Ensure username is unique.';
+            errorMessage =
+                e.message ||
+                'Failed to create user. Ensure username is unique.';
         } finally {
             isSubmitting = false;
         }
@@ -88,7 +100,7 @@
             password: '',
             email: '',
             phone: '',
-            isAdmin: false
+            isAdmin: false,
         };
     }
 
@@ -100,7 +112,9 @@
         <div class="text-sm breadcrumbs">
             <!-- Breadcrumbs managed by store -->
         </div>
-        <button class="btn btn-primary btn-sm gap-2" on:click={() => showModal = true}>
+        <button
+            class="btn btn-primary btn-sm gap-2"
+            on:click={() => (showModal = true)}>
             <Plus size={16} />
             Add User
         </button>
@@ -130,16 +144,21 @@
                             <td>{user.phone}</td>
                             <td>
                                 {#if user.isAdmin}
-                                    <span class="badge badge-primary">Admin</span>
+                                    <span class="badge badge-primary"
+                                        >Admin</span>
                                 {:else}
                                     <span class="badge badge-ghost">User</span>
                                 {/if}
                             </td>
-                            <td class="text-sm opacity-70">{new Date(user.createdAt).toLocaleDateString()}</td>
+                            <td class="text-sm opacity-70"
+                                >{new Date(
+                                    user.createdAt,
+                                ).toLocaleDateString()}</td>
                         </tr>
                     {:else}
                         <tr>
-                            <td colspan="5" class="text-center py-8 opacity-50">No users found</td>
+                            <td colspan="5" class="text-center py-8 opacity-50"
+                                >No users found</td>
                         </tr>
                     {/each}
                 </tbody>
@@ -148,12 +167,11 @@
     {/if}
 </PageSection>
 
-
 {#if showModal}
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <dialog class="modal modal-open">
         <div class="modal-box w-full max-w-md">
             <h3 class="font-bold text-lg mb-4">Create New User</h3>
-            
+
             {#if errorMessage}
                 <div class="alert alert-error text-sm mb-4">
                     <span>{errorMessage}</span>
@@ -161,62 +179,103 @@
             {/if}
 
             <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-                
                 <div class="form-control">
-                    <label class="label">
+                    <label class="label" for="personId">
                         <span class="label-text">Select Person</span>
                     </label>
-                    <select class="select select-bordered w-full" bind:value={formData.personId} on:change={onPersonSelect} required>
-                        <option value="" disabled selected>Select a person...</option>
+                    <select
+                        id="personId"
+                        class="select select-bordered w-full"
+                        bind:value={formData.personId}
+                        on:change={onPersonSelect}
+                        required>
+                        <option value="" disabled selected
+                            >Select a person...</option>
                         {#each persons as person}
                             <option value={person.id}>
-                                {person.first_name} {person.middle_name ? person.middle_name + ' ' : ''}{person.last_name} ({person.email || 'No Email'})
+                                {person.first_name}
+                                {person.middle_name
+                                    ? person.middle_name + ' '
+                                    : ''}{person.last_name} ({person.email ||
+                                    'No Email'})
                             </option>
                         {/each}
                     </select>
                     <label class="label">
-                        <span class="label-text-alt text-warning">This links the login to an employee/person record.</span>
+                        <span class="label-text-alt text-warning"
+                            >This links the login to an employee/person record.</span>
                     </label>
                 </div>
 
                 <div class="form-control">
-                    <label class="label">
+                    <label class="label" for="userName">
                         <span class="label-text">Username</span>
                     </label>
-                    <input type="text" class="input input-bordered w-full" bind:value={formData.userName} required />
+                    <input
+                        id="userName"
+                        type="text"
+                        class="input input-bordered w-full"
+                        bind:value={formData.userName}
+                        required />
                 </div>
 
                 <div class="form-control">
-                    <label class="label">
+                    <label class="label" for="password">
                         <span class="label-text">Password</span>
                     </label>
-                    <input type="password" class="input input-bordered w-full" bind:value={formData.password} required minlength="6" />
+                    <input
+                        id="password"
+                        type="password"
+                        class="input input-bordered w-full"
+                        bind:value={formData.password}
+                        required
+                        minlength="6" />
                 </div>
 
                 <div class="form-control">
-                    <label class="label">
+                    <label class="label" for="email">
                         <span class="label-text">Email</span>
                     </label>
-                    <input type="email" class="input input-bordered w-full" bind:value={formData.email} required />
+                    <input
+                        id="email"
+                        type="email"
+                        class="input input-bordered w-full"
+                        bind:value={formData.email}
+                        required />
                 </div>
 
                 <div class="form-control">
-                    <label class="label">
+                    <label class="label" for="phone">
                         <span class="label-text">Phone</span>
                     </label>
-                    <input type="tel" class="input input-bordered w-full" bind:value={formData.phone} required />
+                    <input
+                        id="phone"
+                        type="tel"
+                        class="input input-bordered w-full"
+                        bind:value={formData.phone}
+                        required />
                 </div>
 
                 <div class="form-control">
                     <label class="label cursor-pointer justify-start gap-4">
                         <span class="label-text">Is Admin User?</span>
-                        <input type="checkbox" class="toggle toggle-primary" bind:checked={formData.isAdmin} />
+                        <input
+                            type="checkbox"
+                            class="toggle toggle-primary"
+                            bind:checked={formData.isAdmin} />
                     </label>
                 </div>
 
                 <div class="modal-action">
-                    <button type="button" class="btn btn-ghost" on:click={() => showModal = false} disabled={isSubmitting}>Cancel</button>
-                    <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
+                    <button
+                        type="button"
+                        class="btn btn-ghost"
+                        on:click={() => (showModal = false)}
+                        disabled={isSubmitting}>Cancel</button>
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={isSubmitting}>
                         {#if isSubmitting}
                             <Loader2 class="animate-spin mr-2" size={16} />
                             Creating...
@@ -227,5 +286,11 @@
                 </div>
             </form>
         </div>
-    </div>
+        <form
+            method="dialog"
+            class="modal-backdrop"
+            on:click={() => (showModal = false)}>
+            <button>close</button>
+        </form>
+    </dialog>
 {/if}

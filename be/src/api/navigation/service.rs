@@ -133,13 +133,13 @@ pub async fn get_user_navigation(
 ) -> Result<Vec<UserNavigationItemDto>> {
     // Get user's department and position from employees or interns
     // Define a struct to hold the role info
+    #[derive(sqlx::FromRow)]
     struct RoleInfo {
         department_id: Option<Uuid>,
         position_id: Option<Uuid>,
     }
 
-    let role_info: Option<RoleInfo> = sqlx::query_as!(
-        RoleInfo,
+    let role_info: Option<RoleInfo> = sqlx::query_as::<_, RoleInfo>(
         r#"
         SELECT department_id, position_id FROM employees 
         WHERE person_id = (SELECT person_id FROM users WHERE id = $1)
@@ -147,8 +147,8 @@ pub async fn get_user_navigation(
         SELECT department_id, position_id FROM interns 
         WHERE person_id = (SELECT person_id FROM users WHERE id = $1)
         "#,
-        user_id
     )
+    .bind(user_id)
     .fetch_optional(pool)
     .await
     ?;
