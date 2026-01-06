@@ -35,7 +35,13 @@ async fn main() {
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3117));
+    let port: u16 = std::env::var("PORT")
+        .unwrap_or_else(|_| "3117".to_string())
+        .parse()
+        .expect("PORT must be a number");
+
+    // Bind to 0.0.0.0 to allow external access
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     tracing::debug!("Listening on {}", addr);
     println!("Listening on {}", addr);

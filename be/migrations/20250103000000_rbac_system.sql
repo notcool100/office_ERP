@@ -148,13 +148,11 @@ INSERT INTO navigation_items (name, path, icon, parent_id, display_order) VALUES
 -- Settings sub-items (Role folder)
 INSERT INTO navigation_items (name, path, icon, parent_id, display_order) VALUES
 ('Role', '/admin/settings/role', 'Shield', (SELECT id FROM navigation_items WHERE path = '/admin/settings'), 1),
-('Role List', '/admin/settings/role', 'List', (SELECT id FROM navigation_items WHERE path = '/admin/settings/role' AND icon = 'Shield'), 1),
 ('Create Role', '/admin/settings/role/create', 'Plus', (SELECT id FROM navigation_items WHERE path = '/admin/settings/role' AND icon = 'Shield'), 2);
 
 -- Settings sub-items (Contact folder)
 INSERT INTO navigation_items (name, path, icon, parent_id, display_order) VALUES
 ('Contact', '/admin/settings/contact', 'UserPlus', (SELECT id FROM navigation_items WHERE path = '/admin/settings'), 2),
-('Contact List', '/admin/settings/contact', 'List', (SELECT id FROM navigation_items WHERE path = '/admin/settings/contact'), 1),
 ('Create Contact', '/admin/settings/contact/create', 'UserPlus', (SELECT id FROM navigation_items WHERE path = '/admin/settings/contact'), 2);
 
 -- Settings sub-items (other)
