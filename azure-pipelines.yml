@@ -30,13 +30,14 @@ stages:
     
     - script: |
         set -e
+        source $HOME/.cargo/env
+        
         echo "Building backend..."
         echo "Rust version:"
         rustc --version
         cargo --version
         
         cd be
-        source $HOME/.cargo/env
         export RUST_BACKTRACE=1
         
         echo "Listing current directory:"
