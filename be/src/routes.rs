@@ -12,6 +12,7 @@ use crate::api::{
     permissions::routes::permissions_routes,
     position::routes::position_routes,
     person::routes::person_routes,
+    user::routes::user_routes,
 };
 
 pub fn build_routes() -> Router {
@@ -25,6 +26,7 @@ pub fn build_routes() -> Router {
         .nest("/navigation", navigation_routes())
         .nest("/permissions", permissions_routes())
         .nest("/persons", person_routes())
+        .nest("/users", user_routes())
         .route_layer(axum::middleware::from_fn(
             crate::middlewares::auth::authenticate,
         ));

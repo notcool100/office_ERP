@@ -138,7 +138,7 @@ pub async fn get_user_navigation(
         position_id: Option<Uuid>,
     }
 
-    let role_info = sqlx::query_as!(
+    let role_info: Option<RoleInfo> = sqlx::query_as!(
         RoleInfo,
         r#"
         SELECT department_id, position_id FROM employees 
