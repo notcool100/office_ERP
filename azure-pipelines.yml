@@ -29,18 +29,45 @@ stages:
         secureFile: 'backend.env'
     
     - script: |
+        set -e
         echo "Building backend..."
+        echo "Rust version:"
+        rustc --version
+        cargo --version
+        
         cd be
         source $HOME/.cargo/env
-        cargo build --release
+        export RUST_BACKTRACE=1
+        
+        echo "Listing current directory:"
+        ls -F
+        
+        echo "Running cargo build --release..."
+        cargo build --release --verbose
+        
+        echo "Checking for binary..."
+        if [ -f "target/release/be" ]; then
+            echo "✅ Backend binary created at target/release/be"
+        else
+            echo "❌ Backend binary NOT found!"
+            exit 1
+        fi
         
         echo "✅ Backend built successfully"
       displayName: "Build Backend"
 
     - script: |
+        set -e
         echo "Preparing backend artifacts..."
         mkdir -p $(Build.ArtifactStagingDirectory)/backend
-        cp be/target/release/be $(Build.ArtifactStagingDirectory)/backend/
+        
+        if [ -f "be/target/release/be" ]; then
+            cp be/target/release/be $(Build.ArtifactStagingDirectory)/backend/
+        else
+            echo "❌ Binary not found at be/target/release/be"
+            ls -R be/target/
+            exit 1
+        fi
         
         # Copy backend.env to .env
         cp $(backendEnv.secureFilePath) $(Build.ArtifactStagingDirectory)/backend/.env

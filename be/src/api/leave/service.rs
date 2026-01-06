@@ -2,13 +2,13 @@ use crate::{
     api::leave::dto::{
         ApproveRejectLeaveRequest, CreateLeaveRequestRequest, LeaveBalanceResponse,
         LeaveRequestResponse, LeaveTypeResponse, ListLeaveRequestsQuery,
-        ListLeaveRequestsResponse, UpdateLeaveRequestRequest,
+        ListLeaveRequestsResponse,
     },
     db::Db,
     models::leave::{LeaveRequestWithDetails, LeaveType},
 };
 use anyhow::{anyhow, Result};
-use chrono::Utc;
+
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
 use uuid::Uuid;

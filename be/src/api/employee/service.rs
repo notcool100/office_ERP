@@ -7,7 +7,7 @@ use crate::{
     models::employee::EmployeeWithPerson,
 };
 use anyhow::{anyhow, Result};
-use chrono::Utc;
+
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
 use uuid::Uuid;

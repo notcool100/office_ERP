@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use crate::models::navigation_item::NavigationItem;
 use chrono::Utc;
 use sqlx::PgPool;

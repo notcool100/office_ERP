@@ -6,7 +6,7 @@ use axum::{
 use serde_json::json;
 use uuid::Uuid;
 use crate::db::Db;
-use crate::models::user::User; // Auth user
+
 
 use super::dto::{CreatePersonDto, ListPersonsQuery, UpdatePersonDto};
 use super::service;

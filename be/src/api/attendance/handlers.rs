@@ -9,7 +9,7 @@ use axum::{
 };
 use chrono::NaiveDate;
 use serde_json::json;
-use uuid::Uuid;
+
 
 pub async fn check_in_handler(
     Extension(db): Extension<Db>,

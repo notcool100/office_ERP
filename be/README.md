@@ -8,41 +8,51 @@ This directory contains the Rust API service built with [axum](https://crates.io
 - PostgreSQL database
 - `DATABASE_URL` environment variable pointing to the database
 
-## Running
+## Database Setup
 
-```bash
-cd be
-cargo run
-```
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Update the `DATABASE_URL` in `.env` with your PostgreSQL credentials.
 
-The server listens on `127.0.0.1:3117` by default.
+## Migrations
 
-## Development Tasks
+This project uses `sqlx` for database migrations.
 
-- Format code: `cargo fmt`
-- Lint: `cargo clippy`
-- Run tests: `cargo test` (none are currently implemented)
-- Apply migrations with `sqlx migrate run` if you modify the schema.
+1. **Install SQLx CLI** (if not already installed):
+   ```bash
+   cargo install sqlx-cli
+   ```
 
-## Project Structure
+2. **Run Migrations**:
+   ```bash
+   # Using cargo-sqlx
+   cargo sqlx migrate run
 
-- `src/` – application source code
-- `migrations/` – SQLx migration files
-
-The available API endpoints are under `/auth` for basic authentication (register, login, refresh, etc.).
+   # OR directly if you have the CLI binary in path
+   sqlx migrate run
+   ```
 
 ## Seeding
 
-Seed the initial `superadmin` user with:
+To populate the database with initial data (Admin user, Roles, Permissions, etc.):
 
-```bash
-cargo run --bin seed -- --password YOUR_PASSWORD
-```
+1. **Seed with a custom password**:
+   ```bash
+   cargo run --bin seed -- --password <YOUR_PASSWORD>
+   ```
 
-Or generate a random password which is printed once:
+   Example:
+   ```bash
+   cargo run --bin seed -- --password admin123
+   ```
 
-```bash
-cargo run --bin seed -- --generate
-```
+   This will create a user `admin` (email: `admin@example.com`) with the specified password.
 
-The generated password is only shown in the console, so make sure to save it.
+2. **(Optional) Verify Seeding**:
+   The seeder creates:
+   - Default Departments (Administration, HR, etc.)
+   - Positions (System Administrator, etc.)
+   - Navigation Menu Items
+   - An Admin Employee linked to the 'Administration' department.
