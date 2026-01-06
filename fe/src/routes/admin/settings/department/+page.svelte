@@ -8,9 +8,11 @@
         Plus,
         Edit,
         Trash2,
+        Shield,
     } from 'lucide-svelte';
     import { onMount } from 'svelte';
     import PageSection from '../../../../components/PageSection.svelte';
+    import PermissionModal from '../../../../components/PermissionModal.svelte';
     import {
         departmentService,
         type Department,
@@ -30,7 +32,9 @@
     let departments: Department[] = [];
     let loading = true;
     let showModal = false;
+    let showPermissionModal = false;
     let editingDepartment: Department | null = null;
+    let permissionDepartment: Department | null = null;
     let formData = {
         name: '',
         description: '',
@@ -60,6 +64,11 @@
             description: dept.description || '',
         };
         showModal = true;
+    }
+
+    function openPermissionModal(dept: Department) {
+        permissionDepartment = dept;
+        showPermissionModal = true;
     }
 
     async function handleSubmit() {
@@ -151,6 +160,13 @@
                                 <div class="join">
                                     <button
                                         class="btn btn-sm btn-ghost join-item"
+                                        title="Permissions"
+                                        on:click={() =>
+                                            openPermissionModal(dept)}>
+                                        <Shield class="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-ghost join-item"
                                         on:click={() => openEditModal(dept)}>
                                         <Edit class="w-4 h-4" />
                                     </button>
@@ -217,4 +233,11 @@
             <button>close</button>
         </form>
     </dialog>
+{/if}
+
+{#if showPermissionModal && permissionDepartment}
+    <PermissionModal
+        title="Permissions for {permissionDepartment.name}"
+        departmentId={permissionDepartment.id}
+        on:close={() => (showPermissionModal = false)} />
 {/if}

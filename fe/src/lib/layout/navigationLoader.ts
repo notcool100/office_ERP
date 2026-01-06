@@ -91,6 +91,25 @@ function mapNavigationToMenuItem(navItem: UserNavigationItem): MenuItem {
     return menuItem;
 }
 
+
+function filterVisibleItems(items: UserNavigationItem[]): UserNavigationItem[] {
+    return items
+        .map(item => {
+            // Recursively filter children
+            const visibleChildren = item.children ? filterVisibleItems(item.children) : [];
+
+            // Keep item if it has read permission OR has visible children
+            if (item.can_read || visibleChildren.length > 0) {
+                return {
+                    ...item,
+                    children: visibleChildren
+                };
+            }
+            return null;
+        })
+        .filter((item): item is UserNavigationItem => item !== null);
+}
+
 export async function loadUserNavigation(): Promise<MenuItem[]> {
     navigationLoading.set(true);
     navigationError.set(null);
@@ -99,10 +118,11 @@ export async function loadUserNavigation(): Promise<MenuItem[]> {
         const navItems = await navigationService.getUserNavigation();
         navigationStore.set(navItems);
 
+        // Filter items based on permissions (recursive)
+        const visibleItems = filterVisibleItems(navItems);
+
         // Convert to MenuItem format for the sidebar
-        const menuItems = navItems
-            .filter(item => item.can_read) // Only show items user can read
-            .map(mapNavigationToMenuItem);
+        const menuItems = visibleItems.map(mapNavigationToMenuItem);
 
         return menuItems;
     } catch (error) {

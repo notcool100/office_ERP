@@ -6,7 +6,8 @@ use be::{
 
 use dotenvy::dotenv;
 use std::net::SocketAddr;
-use tower_http::{cors::{CorsLayer, Any}, trace::TraceLayer};
+use tower_http::{cors::{CorsLayer, Any}, trace::TraceLayer, set_header::SetResponseHeaderLayer};
+use axum::http::{header::{AUTHORIZATION, CONTENT_TYPE, ACCEPT, CACHE_CONTROL}, HeaderValue};
 use tracing_subscriber::EnvFilter;
 
 
@@ -33,6 +34,10 @@ async fn main() {
     let app = build_routes()
         .layer(middleware::add_extensions(db_pool))
         .layer(cors)
+        .layer(SetResponseHeaderLayer::overriding(
+            CACHE_CONTROL,
+            HeaderValue::from_static("no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
+        ))
         .layer(TraceLayer::new_for_http());
 
     let port: u16 = std::env::var("PORT")

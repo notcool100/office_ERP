@@ -8,9 +8,11 @@
         Plus,
         Edit,
         Trash2,
+        Shield,
     } from 'lucide-svelte';
     import { onMount } from 'svelte';
     import PageSection from '../../../../components/PageSection.svelte';
+    import PermissionModal from '../../../../components/PermissionModal.svelte';
     import { positionService, type Position } from '$lib/services/position';
 
     pageTitle.set({
@@ -27,7 +29,9 @@
     let positions: Position[] = [];
     let loading = true;
     let showModal = false;
+    let showPermissionModal = false;
     let editingPosition: Position | null = null;
+    let permissionPosition: Position | null = null;
     let formData = {
         name: '',
         description: '',
@@ -57,6 +61,11 @@
             description: pos.description || '',
         };
         showModal = true;
+    }
+
+    function openPermissionModal(pos: Position) {
+        permissionPosition = pos;
+        showPermissionModal = true;
     }
 
     async function handleSubmit() {
@@ -146,6 +155,13 @@
                                 <div class="join">
                                     <button
                                         class="btn btn-sm btn-ghost join-item"
+                                        title="Permissions"
+                                        on:click={() =>
+                                            openPermissionModal(pos)}>
+                                        <Shield class="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        class="btn btn-sm btn-ghost join-item"
                                         on:click={() => openEditModal(pos)}>
                                         <Edit class="w-4 h-4" />
                                     </button>
@@ -212,4 +228,11 @@
             <button>close</button>
         </form>
     </dialog>
+{/if}
+
+{#if showPermissionModal && permissionPosition}
+    <PermissionModal
+        title="Permissions for {permissionPosition.name}"
+        positionId={permissionPosition.id}
+        on:close={() => (showPermissionModal = false)} />
 {/if}
