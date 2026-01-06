@@ -8,15 +8,18 @@ use axum::{
 };
 
 pub fn auth_routes() -> Router {
-    Router::new()
-        .route(
-            "/register",
-            // post(register_handler).layer(middleware::from_fn(authenticate)),
-            post(register_handler),
-        )
+    let public_routes = Router::new()
+        .route("/register", post(register_handler))
         .route("/login", post(login_handler))
         .route("/refresh", post(refresh_handler))
-        .route("/forgot-password", post(forgot_password_handler))
+        .route("/forgot-password", post(forgot_password_handler));
+
+    let protected_routes = Router::new()
         .route("/change-password", post(change_password_handler))
         .route("/me", get(profile_handler))
+        .route_layer(axum::middleware::from_fn(
+            crate::middlewares::auth::authenticate,
+        ));
+
+    public_routes.merge(protected_routes)
 }

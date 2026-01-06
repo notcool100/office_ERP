@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 
 export interface Permission {
     id: string;
@@ -38,14 +38,17 @@ export const permissionService = {
         if (filters?.navigation_item_id) params.append('navigation_item_id', filters.navigation_item_id);
 
         const response = await api.get(`/permissions?${params.toString()}`);
-        return response.data;
+        if (!response.ok) throw new Error('Failed to fetch permissions');
+        return await response.json();
     },
 
     async assign(data: AssignPermissionDto): Promise<void> {
-        await api.post('/permissions', data);
+        const response = await api.post('/permissions', data);
+        if (!response.ok) throw new Error('Failed to assign permission');
     },
 
     async delete(id: string): Promise<void> {
-        await api.delete(`/permissions/${id}`);
+        const response = await api.delete(`/permissions/${id}`);
+        if (!response.ok) throw new Error('Failed to delete permission');
     }
 };

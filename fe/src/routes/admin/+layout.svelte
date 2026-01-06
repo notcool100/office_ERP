@@ -5,6 +5,7 @@
     import Sidebar from '../../components/layout/Sidebar.svelte';
     import StatusBar from '../../components/layout/StatusBar.svelte';
     import { pageTitle } from '$lib/stores/page-title';
+    import { userStore } from '$lib/stores/user';
     import { onMount, onDestroy } from 'svelte';
     import {
         initShortcutListener,
@@ -53,6 +54,13 @@
         }
     });
 
+    // Auth Protection
+    $effect(() => {
+        if (!$userStore.loading && !$userStore.isAuthenticated) {
+            goto('/login');
+        }
+    });
+
     function selectTab(tab: Tab) {
         goto(tab.path);
     }
@@ -74,9 +82,10 @@
         }
     }
 
-    onMount(() => {
+    onMount(async () => {
         initShortcutListener();
         adminShortcuts.forEach((sc) => registerShortcut(sc));
+        await userStore.init();
     });
 
     onDestroy(() => {

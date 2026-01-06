@@ -1,7 +1,7 @@
 <script lang="ts">
     import { page } from '$app/state';
     import { goto } from '$app/navigation';
-    import { loggedIn, logout } from '$lib/stores/user';
+    import { userStore } from '$lib/stores/user';
     import logo from '$lib/images/svelte-logo.svg';
     import github from '$lib/images/github.svg';
 </script>
@@ -24,26 +24,23 @@
             <li
                 aria-current={page.url.pathname === '/about'
                     ? 'page'
-                    : undefined}
-            >
+                    : undefined}>
                 <a href="/about">About</a>
             </li>
-            {#if $loggedIn}
+            {#if $userStore.isAuthenticated}
                 <li
                     aria-current={page.url.pathname === '/dashboard'
                         ? 'page'
-                        : undefined}
-                >
+                        : undefined}>
                     <a href="/dashboard">Dashboard</a>
                 </li>
                 <li>
                     <button
                         type="button"
                         on:click={() => {
-                            logout();
+                            userStore.logout();
                             goto('/login');
-                        }}
-                    >
+                        }}>
                         Log out
                     </button>
                 </li>
@@ -51,8 +48,7 @@
                 <li
                     aria-current={page.url.pathname === '/login'
                         ? 'page'
-                        : undefined}
-                >
+                        : undefined}>
                     <a href="/login">Login</a>
                 </li>
             {/if}

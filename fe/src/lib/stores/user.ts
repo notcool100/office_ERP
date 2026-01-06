@@ -1,43 +1,67 @@
 import { writable } from 'svelte/store';
-import { PUBLIC_API_URL } from '$env/static/public';
+import { authService } from '../services/auth.service';
 
-export const loggedIn = writable(false);
-export const accessToken = writable<string | null>(null);
-
-if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-        loggedIn.set(true);
-        accessToken.set(token);
-    }
+interface User {
+    id: string;
+    userName: string;
+    email: string;
+    // Add other fields as needed based on backend User struct
 }
 
-export async function authenticate(userName: string, password: string) {
-    const res = await fetch(`${PUBLIC_API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName, password })
+function createUserStore() {
+    const { subscribe, set, update } = writable<{
+        user: User | null;
+        isAuthenticated: boolean;
+        loading: boolean;
+    }>({
+        user: null,
+        isAuthenticated: false,
+        loading: true
     });
 
-    if (!res.ok) {
-        throw new Error('Login failed');
-    }
+    return {
+        subscribe,
+        login: async (userName: string, password: string) => {
+            update(state => ({ ...state, loading: true }));
+            try {
+                const data = await authService.login(userName, password);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('access_token', data.accessToken);
+                    localStorage.setItem('refresh_token', data.refreshToken);
+                }
 
-    const data = await res.json();
-    loggedIn.set(true);
-    accessToken.set(data.access_token);
+                // Fetch profile immediate after login
+                const user = await authService.getProfile();
+                set({ user, isAuthenticated: true, loading: false });
+                return true;
+            } catch (error) {
+                set({ user: null, isAuthenticated: false, loading: false });
+                throw error;
+            }
+        },
+        logout: () => {
+            authService.logout();
+            set({ user: null, isAuthenticated: false, loading: false });
+        },
+        init: async () => {
+            if (typeof window === 'undefined') return;
 
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-    }
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                set({ user: null, isAuthenticated: false, loading: false });
+                return;
+            }
+
+            try {
+                const user = await authService.getProfile();
+                set({ user, isAuthenticated: true, loading: false });
+            } catch (error) {
+                // Token might be invalid or expired and refresh failed
+                set({ user: null, isAuthenticated: false, loading: false });
+                authService.logout();
+            }
+        }
+    };
 }
 
-export function logout() {
-    loggedIn.set(false);
-    accessToken.set(null);
-    if (typeof window !== 'undefined') {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-    }
-}
+export const userStore = createUserStore();

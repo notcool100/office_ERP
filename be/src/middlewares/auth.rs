@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
 };
 
-use crate::{api::auth::jwt::validate_token, api::user::service::get_by_email, errors::AuthError};
+use crate::{api::auth::jwt::validate_token, errors::AuthError};
 
 pub async fn authenticate(mut req: Request<Body>, next: Next) -> Response<Body> {
     let auth_header = req.headers_mut().get(http::header::AUTHORIZATION);
@@ -47,9 +47,20 @@ pub async fn authenticate(mut req: Request<Body>, next: Next) -> Response<Body> 
         }
     };
 
-    let current_user = match get_by_email(token_data.sub) {
-        Some(user) => user,
+    let db = match req.extensions().get::<crate::db::Db>() {
+        Some(db) => db,
         None => {
+             return AuthError {
+                message: "Database connection missing".to_string(),
+                status_code: StatusCode::INTERNAL_SERVER_ERROR,
+            }
+            .into_response();
+        }
+    };
+
+    let current_user = match crate::api::user::service::get_by_id(db, token_data.sub).await {
+        Ok(user) => user,
+        Err(_) => {
             return AuthError {
                 message: "You are not an authorized user".to_string(),
                 status_code: StatusCode::UNAUTHORIZED,

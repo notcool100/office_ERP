@@ -15,9 +15,7 @@ use crate::api::{
 };
 
 pub fn build_routes() -> Router {
-    Router::new()
-        .route("/", get(health_check_handler))
-        .nest("/auth", auth_routes())
+    let protected_routes = Router::new()
         .nest("/employees", employee_routes())
         .nest("/interns", intern_routes())
         .nest("/leave", leave_routes())
@@ -27,4 +25,12 @@ pub fn build_routes() -> Router {
         .nest("/navigation", navigation_routes())
         .nest("/permissions", permissions_routes())
         .nest("/persons", person_routes())
+        .route_layer(axum::middleware::from_fn(
+            crate::middlewares::auth::authenticate,
+        ));
+
+    Router::new()
+        .route("/", get(health_check_handler))
+        .nest("/auth", auth_routes())
+        .merge(protected_routes)
 }

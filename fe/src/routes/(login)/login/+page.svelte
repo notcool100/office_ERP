@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { authenticate } from '$lib/stores/user';
+    import { userStore } from '$lib/stores/user';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
@@ -15,7 +15,7 @@
 
     async function handleSubmit() {
         try {
-            await authenticate(username, password);
+            await userStore.login(username, password);
             goto('/admin/dashboard');
         } catch (e) {
             message = 'Invalid credentials';
