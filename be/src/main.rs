@@ -7,7 +7,7 @@ use be::{
 use dotenvy::dotenv;
 use std::net::SocketAddr;
 use tower_http::{cors::{CorsLayer, Any}, trace::TraceLayer, set_header::SetResponseHeaderLayer};
-use axum::http::{header::{AUTHORIZATION, CONTENT_TYPE, ACCEPT, CACHE_CONTROL}, HeaderValue};
+use axum::http::{header::CACHE_CONTROL, HeaderValue};
 use tracing_subscriber::EnvFilter;
 
 

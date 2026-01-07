@@ -1,60 +1,60 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
+    import { page } from '$app/stores';
     import { breadcrumb } from '$lib/stores/breadcrumb';
     import { pageTitle } from '$lib/stores/page-title';
-    import { userStore } from '$lib/stores/user';
     import {
         Home,
-        CircleUser,
+        Settings,
+        User as UserIcon,
         Edit,
+        Trash2,
         Save,
         X,
         Key,
         Loader2,
-        User as UserIcon,
+        UserCircle,
         Mail,
         Phone,
         Calendar,
         Shield,
+        ArrowLeft,
     } from 'lucide-svelte';
-    import PageSection from '../../../../components/PageSection.svelte';
+    import PageSection from '../../../../../components/PageSection.svelte';
     import { userService } from '$lib/services/user-service';
     import { personService } from '$lib/services/person';
     import type { User } from '$lib/types/user';
     import type { Person } from '$lib/types/person';
 
     pageTitle.set({
-        title: 'Profile Information',
-        desc: 'Your personal and account details',
+        title: 'User Information',
+        desc: 'View and manage user details.',
     });
 
     breadcrumb.set([
         { label: 'Home', icon: Home },
-        { label: 'Profile', icon: CircleUser },
+        { label: 'Settings', icon: Settings },
+        { label: 'User', icon: UserIcon },
     ]);
 
+    let userId: string;
+    let user: User | null = null;
     let person: Person | null = null;
     let loading = true;
-    let isEditingUser = false;
-    let isEditingPerson = false;
+    let isEditing = false;
     let isSaving = false;
+    let showDeleteModal = false;
     let showPasswordModal = false;
     let errorMessage = '';
     let successMessage = '';
 
-    // Reactively get current user from store
-    $: currentUser = $userStore.user;
-
     // Edit form data
-    let userEditData = {
+    let editData = {
         userName: '',
         email: '',
         phone: '',
-    };
-
-    let personEditData = {
-        first_name: '',
-        middle_name: '',
-        last_name: '',
+        isAdmin: false,
     };
 
     // Password change data
@@ -63,119 +63,82 @@
         confirmPassword: '',
     };
 
-    // Load current user and person data
-    async function loadProfileData() {
+    $: userId = $page.params.id;
+
+    async function loadUserData() {
         loading = true;
         errorMessage = '';
         try {
-            if (currentUser && currentUser.personId) {
+            user = await userService.getById(userId);
+            if (user) {
                 // Load associated person
-                person = await personService.getById(currentUser.personId);
+                try {
+                    person = await personService.getById(user.personId);
+                } catch (e) {
+                    console.error('Failed to load person data', e);
+                }
 
                 // Initialize edit data
-                userEditData = {
-                    userName: currentUser.userName,
-                    email: currentUser.email,
-                    phone: currentUser.phone,
-                };
-
-                personEditData = {
-                    first_name: person.first_name,
-                    middle_name: person.middle_name || '',
-                    last_name: person.last_name || '',
+                editData = {
+                    userName: user.userName,
+                    email: user.email,
+                    phone: user.phone,
+                    isAdmin: user.isAdmin,
                 };
             }
         } catch (e: any) {
-            errorMessage = e.message || 'Failed to load profile data';
+            errorMessage = e.message || 'Failed to load user data';
         } finally {
             loading = false;
         }
     }
 
-    // Watch for changes in currentUser and reload data
-    $: if (currentUser) {
-        loadProfileData();
-    }
-
-    function enableUserEdit() {
-        isEditingUser = true;
+    function enableEdit() {
+        isEditing = true;
         successMessage = '';
         errorMessage = '';
     }
 
-    function cancelUserEdit() {
-        isEditingUser = false;
+    function cancelEdit() {
+        isEditing = false;
         errorMessage = '';
-        if (currentUser) {
-            userEditData = {
-                userName: currentUser.userName,
-                email: currentUser.email,
-                phone: currentUser.phone,
+        if (user) {
+            editData = {
+                userName: user.userName,
+                email: user.email,
+                phone: user.phone,
+                isAdmin: user.isAdmin,
             };
         }
     }
 
-    function enablePersonEdit() {
-        isEditingPerson = true;
-        successMessage = '';
-        errorMessage = '';
-    }
-
-    function cancelPersonEdit() {
-        isEditingPerson = false;
-        errorMessage = '';
-        if (person) {
-            personEditData = {
-                first_name: person.first_name,
-                middle_name: person.middle_name || '',
-                last_name: person.last_name || '',
-            };
-        }
-    }
-
-    async function saveUserChanges() {
-        if (!currentUser) return;
-
+    async function saveChanges() {
         isSaving = true;
         errorMessage = '';
         successMessage = '';
         try {
-            await userService.update(currentUser.id, userEditData);
-            successMessage = 'User information updated successfully!';
-            isEditingUser = false;
-            await loadProfileData();
+            await userService.update(userId, editData);
+            successMessage = 'User updated successfully!';
+            isEditing = false;
+            await loadUserData();
         } catch (e: any) {
-            errorMessage = e.message || 'Failed to update user information';
+            errorMessage = e.message || 'Failed to update user';
         } finally {
             isSaving = false;
         }
     }
 
-    async function savePersonChanges() {
-        if (!person) return;
-
-        isSaving = true;
-        errorMessage = '';
-        successMessage = '';
+    async function handleDelete() {
         try {
-            await personService.update(person.id, {
-                first_name: personEditData.first_name || undefined,
-                middle_name: personEditData.middle_name || undefined,
-                last_name: personEditData.last_name || undefined,
-            });
-            successMessage = 'Personal information updated successfully!';
-            isEditingPerson = false;
-            await loadProfileData();
+            await userService.delete(userId);
+            goto('/admin/settings/user');
         } catch (e: any) {
-            errorMessage = e.message || 'Failed to update personal information';
-        } finally {
-            isSaving = false;
+            errorMessage = e.message || 'Failed to delete user';
+            showDeleteModal = false;
         }
     }
 
     async function handlePasswordChange() {
-        if (!currentUser) return;
-
         if (passwordData.newPassword !== passwordData.confirmPassword) {
             errorMessage = 'Passwords do not match';
             return;
@@ -186,10 +149,7 @@
         }
 
         try {
-            await userService.changePassword(
-                currentUser.id,
-                passwordData.newPassword,
-            );
+            await userService.changePassword(userId, passwordData.newPassword);
             successMessage = 'Password changed successfully!';
             showPasswordModal = false;
             passwordData = { newPassword: '', confirmPassword: '' };
@@ -197,9 +157,21 @@
             errorMessage = e.message || 'Failed to change password';
         }
     }
+
+    onMount(loadUserData);
 </script>
 
-<PageSection title="My Profile">
+<PageSection title={user?.userName || 'User Information'}>
+    <!-- Back Button -->
+    <div class="mb-4">
+        <button
+            class="btn btn-ghost btn-sm gap-2"
+            on:click={() => goto('/admin/settings/user')}>
+            <ArrowLeft size={16} />
+            Back to Users
+        </button>
+    </div>
+
     {#if successMessage}
         <div class="alert alert-success mb-4">
             <span>{successMessage}</span>
@@ -216,157 +188,38 @@
         <div class="flex justify-center p-8">
             <span class="loading loading-spinner loading-lg"></span>
         </div>
-    {:else if currentUser}
+    {:else if user}
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Main Profile Information -->
+            <!-- Main User Information -->
             <div class="lg:col-span-2 space-y-6">
-                <!-- Personal Information Card -->
+                <!-- User Details Card -->
                 <div class="card bg-base-100 shadow-lg">
                     <div class="card-body">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="card-title text-xl">
-                                Personal Information
-                            </h2>
-                            {#if !isEditingPerson}
-                                <button
-                                    class="btn btn-primary btn-sm gap-2"
-                                    on:click={enablePersonEdit}>
-                                    <Edit size={16} />
-                                    Edit
-                                </button>
+                            <h2 class="card-title text-2xl">User Details</h2>
+                            {#if !isEditing}
+                                <div class="flex gap-2">
+                                    <button
+                                        class="btn btn-primary btn-sm gap-2"
+                                        on:click={enableEdit}>
+                                        <Edit size={16} />
+                                        Edit
+                                    </button>
+                                    <button
+                                        class="btn btn-error btn-sm gap-2"
+                                        on:click={() =>
+                                            (showDeleteModal = true)}>
+                                        <Trash2 size={16} />
+                                        Delete
+                                    </button>
+                                </div>
                             {/if}
                         </div>
 
-                        {#if isEditingPerson && person}
+                        {#if isEditing}
                             <!-- Edit Form -->
                             <form
-                                on:submit|preventDefault={savePersonChanges}
-                                class="space-y-4">
-                                <div class="form-control">
-                                    <label class="label" for="first_name">
-                                        <span class="label-text"
-                                            >First Name</span>
-                                    </label>
-                                    <input
-                                        id="first_name"
-                                        type="text"
-                                        class="input input-bordered w-full"
-                                        bind:value={personEditData.first_name}
-                                        required />
-                                </div>
-
-                                <div class="form-control">
-                                    <label class="label" for="middle_name">
-                                        <span class="label-text"
-                                            >Middle Name</span>
-                                    </label>
-                                    <input
-                                        id="middle_name"
-                                        type="text"
-                                        class="input input-bordered w-full"
-                                        bind:value={
-                                            personEditData.middle_name
-                                        } />
-                                </div>
-
-                                <div class="form-control">
-                                    <label class="label" for="last_name">
-                                        <span class="label-text"
-                                            >Last Name</span>
-                                    </label>
-                                    <input
-                                        id="last_name"
-                                        type="text"
-                                        class="input input-bordered w-full"
-                                        bind:value={personEditData.last_name}
-                                        required />
-                                </div>
-
-                                <div class="flex gap-2 pt-4">
-                                    <button
-                                        type="submit"
-                                        class="btn btn-primary gap-2"
-                                        disabled={isSaving}>
-                                        {#if isSaving}
-                                            <Loader2
-                                                class="animate-spin"
-                                                size={16} />
-                                            Saving...
-                                        {:else}
-                                            <Save size={16} />
-                                            Save Changes
-                                        {/if}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn btn-ghost gap-2"
-                                        on:click={cancelPersonEdit}
-                                        disabled={isSaving}>
-                                        <X size={16} />
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        {:else if person}
-                            <!-- View Mode -->
-                            <div class="space-y-4">
-                                <div class="flex items-start gap-3">
-                                    <UserIcon
-                                        class="text-primary mt-1"
-                                        size={20} />
-                                    <div>
-                                        <p class="text-sm opacity-70">
-                                            Full Name
-                                        </p>
-                                        <p class="text-lg font-semibold">
-                                            {person.first_name}
-                                            {person.middle_name || ''}
-                                            {person.last_name || ''}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="flex items-start gap-3">
-                                    <Calendar
-                                        class="text-primary mt-1"
-                                        size={20} />
-                                    <div>
-                                        <p class="text-sm opacity-70">
-                                            Member Since
-                                        </p>
-                                        <p class="text-lg">
-                                            {new Date(
-                                                person.created_at,
-                                            ).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-
-                <!-- Account Information Card -->
-                <div class="card bg-base-100 shadow-lg">
-                    <div class="card-body">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="card-title text-xl">
-                                Account Information
-                            </h2>
-                            {#if !isEditingUser}
-                                <button
-                                    class="btn btn-primary btn-sm gap-2"
-                                    on:click={enableUserEdit}>
-                                    <Edit size={16} />
-                                    Edit
-                                </button>
-                            {/if}
-                        </div>
-
-                        {#if isEditingUser}
-                            <!-- Edit Form -->
-                            <form
-                                on:submit|preventDefault={saveUserChanges}
+                                on:submit|preventDefault={saveChanges}
                                 class="space-y-4">
                                 <div class="form-control">
                                     <label class="label" for="userName">
@@ -376,7 +229,7 @@
                                         id="userName"
                                         type="text"
                                         class="input input-bordered w-full"
-                                        bind:value={userEditData.userName}
+                                        bind:value={editData.userName}
                                         required />
                                 </div>
 
@@ -388,7 +241,7 @@
                                         id="email"
                                         type="email"
                                         class="input input-bordered w-full"
-                                        bind:value={userEditData.email}
+                                        bind:value={editData.email}
                                         required />
                                 </div>
 
@@ -400,8 +253,20 @@
                                         id="phone"
                                         type="tel"
                                         class="input input-bordered w-full"
-                                        bind:value={userEditData.phone}
+                                        bind:value={editData.phone}
                                         required />
+                                </div>
+
+                                <div class="form-control">
+                                    <label
+                                        class="label cursor-pointer justify-start gap-4">
+                                        <span class="label-text"
+                                            >Admin User</span>
+                                        <input
+                                            type="checkbox"
+                                            class="toggle toggle-primary"
+                                            bind:checked={editData.isAdmin} />
+                                    </label>
                                 </div>
 
                                 <div class="flex gap-2 pt-4">
@@ -422,7 +287,7 @@
                                     <button
                                         type="button"
                                         class="btn btn-ghost gap-2"
-                                        on:click={cancelUserEdit}
+                                        on:click={cancelEdit}
                                         disabled={isSaving}>
                                         <X size={16} />
                                         Cancel
@@ -433,7 +298,7 @@
                             <!-- View Mode -->
                             <div class="space-y-4">
                                 <div class="flex items-start gap-3">
-                                    <UserIcon
+                                    <UserCircle
                                         class="text-primary mt-1"
                                         size={20} />
                                     <div>
@@ -441,7 +306,7 @@
                                             Username
                                         </p>
                                         <p class="text-lg font-bold">
-                                            {currentUser.userName}
+                                            {user.userName}
                                         </p>
                                     </div>
                                 </div>
@@ -450,9 +315,7 @@
                                     <Mail class="text-primary mt-1" size={20} />
                                     <div>
                                         <p class="text-sm opacity-70">Email</p>
-                                        <p class="text-lg">
-                                            {currentUser.email}
-                                        </p>
+                                        <p class="text-lg">{user.email}</p>
                                     </div>
                                 </div>
 
@@ -462,9 +325,7 @@
                                         size={20} />
                                     <div>
                                         <p class="text-sm opacity-70">Phone</p>
-                                        <p class="text-lg">
-                                            {currentUser.phone}
-                                        </p>
+                                        <p class="text-lg">{user.phone}</p>
                                     </div>
                                 </div>
 
@@ -475,7 +336,7 @@
                                     <div>
                                         <p class="text-sm opacity-70">Role</p>
                                         <p class="text-lg">
-                                            {#if currentUser.isAdmin}
+                                            {#if user.isAdmin}
                                                 <span
                                                     class="badge badge-primary"
                                                     >Administrator</span>
@@ -493,11 +354,11 @@
                                         size={20} />
                                     <div>
                                         <p class="text-sm opacity-70">
-                                            Account Created
+                                            Created At
                                         </p>
                                         <p class="text-lg">
                                             {new Date(
-                                                currentUser.createdAt,
+                                                user.createdAt,
                                             ).toLocaleString()}
                                         </p>
                                     </div>
@@ -506,6 +367,47 @@
                         {/if}
                     </div>
                 </div>
+
+                <!-- Associated Person Card -->
+                {#if person}
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h2 class="card-title">Associated Person</h2>
+                            <div class="space-y-3">
+                                <div>
+                                    <p class="text-sm opacity-70">Full Name</p>
+                                    <p class="text-lg font-semibold">
+                                        {person.first_name}
+                                        {person.middle_name || ''}
+                                        {person.last_name || ''}
+                                    </p>
+                                </div>
+                                {#if person.date_of_birth}
+                                    <div>
+                                        <p class="text-sm opacity-70">
+                                            Date of Birth
+                                        </p>
+                                        <p class="text-lg">
+                                            {new Date(
+                                                person.date_of_birth,
+                                            ).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                {/if}
+                                {#if person.citizenship_number}
+                                    <div>
+                                        <p class="text-sm opacity-70">
+                                            Citizenship Number
+                                        </p>
+                                        <p class="text-lg">
+                                            {person.citizenship_number}
+                                        </p>
+                                    </div>
+                                {/if}
+                            </div>
+                        </div>
+                    </div>
+                {/if}
             </div>
 
             <!-- Sidebar Actions -->
@@ -528,7 +430,7 @@
                 <!-- Account Status Card -->
                 <div class="card bg-base-100 shadow-lg">
                     <div class="card-body">
-                        <h2 class="card-title">Account Details</h2>
+                        <h2 class="card-title">Account Status</h2>
                         <div class="space-y-3">
                             <div>
                                 <p class="text-sm opacity-70">Status</p>
@@ -537,17 +439,9 @@
                             <div>
                                 <p class="text-sm opacity-70">User ID</p>
                                 <p class="text-xs font-mono break-all">
-                                    {currentUser.id}
+                                    {user.id}
                                 </p>
                             </div>
-                            {#if person}
-                                <div>
-                                    <p class="text-sm opacity-70">Person ID</p>
-                                    <p class="text-xs font-mono break-all">
-                                        {person.id}
-                                    </p>
-                                </div>
-                            {/if}
                         </div>
                     </div>
                 </div>
@@ -555,10 +449,37 @@
         </div>
     {:else}
         <div class="alert alert-warning">
-            <span>Unable to load profile information</span>
+            <span>User not found</span>
         </div>
     {/if}
 </PageSection>
+
+<!-- Delete Confirmation Modal -->
+{#if showDeleteModal}
+    <dialog class="modal modal-open">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg">Delete User</h3>
+            <p class="py-4">
+                Are you sure you want to delete this user? This action cannot be
+                undone.
+            </p>
+            <div class="modal-action">
+                <button
+                    class="btn btn-ghost"
+                    on:click={() => (showDeleteModal = false)}>Cancel</button>
+                <button class="btn btn-error" on:click={handleDelete}>
+                    Delete
+                </button>
+            </div>
+        </div>
+        <form
+            method="dialog"
+            class="modal-backdrop"
+            on:click={() => (showDeleteModal = false)}>
+            <button>close</button>
+        </form>
+    </dialog>
+{/if}
 
 <!-- Password Change Modal -->
 {#if showPasswordModal}
@@ -580,9 +501,6 @@
                         bind:value={passwordData.newPassword}
                         required
                         minlength="6" />
-                    <label class="label">
-                        <span class="label-text-alt">Minimum 6 characters</span>
-                    </label>
                 </div>
 
                 <div class="form-control">
@@ -608,7 +526,6 @@
                                 newPassword: '',
                                 confirmPassword: '',
                             };
-                            errorMessage = '';
                         }}>Cancel</button>
                     <button type="submit" class="btn btn-primary">
                         Change Password
@@ -622,7 +539,6 @@
             on:click={() => {
                 showPasswordModal = false;
                 passwordData = { newPassword: '', confirmPassword: '' };
-                errorMessage = '';
             }}>
             <button>close</button>
         </form>

@@ -5,6 +5,10 @@ interface User {
     id: string;
     userName: string;
     email: string;
+    phone: string;
+    personId: string;
+    isAdmin: boolean;
+    createdAt: string;
     // Add other fields as needed based on backend User struct
 }
 

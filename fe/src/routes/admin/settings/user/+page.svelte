@@ -134,11 +134,12 @@
                         <th>Phone</th>
                         <th>Role</th>
                         <th>Created At</th>
+                        <th class="text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {#each users as user}
-                        <tr>
+                        <tr class="hover">
                             <td class="font-bold">{user.userName}</td>
                             <td>{user.email}</td>
                             <td>{user.phone}</td>
@@ -154,10 +155,18 @@
                                 >{new Date(
                                     user.createdAt,
                                 ).toLocaleDateString()}</td>
+                            <td class="text-right">
+                                <a
+                                    href="/admin/settings/user/{user.id}"
+                                    class="btn btn-ghost btn-sm gap-2">
+                                    <UserIcon size={16} />
+                                    View
+                                </a>
+                            </td>
                         </tr>
                     {:else}
                         <tr>
-                            <td colspan="5" class="text-center py-8 opacity-50"
+                            <td colspan="6" class="text-center py-8 opacity-50"
                                 >No users found</td>
                         </tr>
                     {/each}

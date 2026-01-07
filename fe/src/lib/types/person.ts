@@ -5,6 +5,8 @@ export interface Person {
     last_name: string;
     email?: string;
     phone?: string;
+    date_of_birth?: string;
+    citizenship_number?: string;
     created_at: string;
 }
 
