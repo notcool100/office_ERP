@@ -8,6 +8,7 @@ pub struct Position {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    pub department_id: Option<Uuid>,
     pub is_active: bool,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,

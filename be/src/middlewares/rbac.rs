@@ -4,11 +4,9 @@ use axum::{
     http::{Method, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Router,
 };
 use sqlx::FromRow;
-use std::sync::Arc;
-use tower::Layer;
+use std::{future::Future, pin::Pin, sync::Arc};
 use uuid::Uuid;
 
 use crate::{db::Db, errors::AuthError, models::user::User};
@@ -57,66 +55,73 @@ impl PermissionFlags {
     }
 }
 
-pub fn require_permission(nav_path: &str) -> impl Layer<Router> {
+type AuthorizeFn =
+    fn(State<RbacConfig>, Request<Body>, Next) -> Pin<Box<dyn Future<Output = Response> + Send>>;
+
+pub fn require_permission(
+    nav_path: &str,
+) -> axum::middleware::FromFnLayer<AuthorizeFn, RbacConfig, (State<RbacConfig>, Request<Body>)> {
     let state = RbacConfig {
         nav_path: Arc::from(nav_path),
     };
     axum::middleware::from_fn_with_state(state, authorize)
 }
 
-async fn authorize(
+fn authorize(
     State(config): State<RbacConfig>,
     req: Request<Body>,
     next: Next,
-) -> Response {
-    if req.method() == Method::OPTIONS {
-        return next.run(req).await;
-    }
+) -> Pin<Box<dyn Future<Output = Response> + Send>> {
+    Box::pin(async move {
+        if req.method() == Method::OPTIONS {
+            return next.run(req).await;
+        }
 
-    let action = match PermissionAction::from_method(req.method()) {
-        Some(action) => action,
-        None => return next.run(req).await,
-    };
+        let action = match PermissionAction::from_method(req.method()) {
+            Some(action) => action,
+            None => return next.run(req).await,
+        };
 
-    let db = match req.extensions().get::<Db>() {
-        Some(db) => db,
-        None => {
-            return AuthError {
-                message: "Database connection missing".to_string(),
+        let db = match req.extensions().get::<Db>() {
+            Some(db) => db,
+            None => {
+                return AuthError {
+                    message: "Database connection missing".to_string(),
+                    status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                }
+                .into_response();
+            }
+        };
+
+        let user = match req.extensions().get::<User>() {
+            Some(user) => user,
+            None => {
+                return AuthError {
+                    message: "You are not an authorized user".to_string(),
+                    status_code: StatusCode::UNAUTHORIZED,
+                }
+                .into_response();
+            }
+        };
+
+        if user.is_admin {
+            return next.run(req).await;
+        }
+
+        match fetch_permissions(db, user.id, &config.nav_path).await {
+            Ok(Some(perms)) if perms.allows(action) => next.run(req).await,
+            Ok(_) => AuthError {
+                message: "You do not have permission to perform this action".to_string(),
+                status_code: StatusCode::FORBIDDEN,
+            }
+            .into_response(),
+            Err(_) => AuthError {
+                message: "Failed to validate permissions".to_string(),
                 status_code: StatusCode::INTERNAL_SERVER_ERROR,
             }
-            .into_response();
+            .into_response(),
         }
-    };
-
-    let user = match req.extensions().get::<User>() {
-        Some(user) => user,
-        None => {
-            return AuthError {
-                message: "You are not an authorized user".to_string(),
-                status_code: StatusCode::UNAUTHORIZED,
-            }
-            .into_response();
-        }
-    };
-
-    if user.is_admin {
-        return next.run(req).await;
-    }
-
-    match fetch_permissions(db, user.id, &config.nav_path).await {
-        Ok(Some(perms)) if perms.allows(action) => next.run(req).await,
-        Ok(_) => AuthError {
-            message: "You do not have permission to perform this action".to_string(),
-            status_code: StatusCode::FORBIDDEN,
-        }
-        .into_response(),
-        Err(_) => AuthError {
-            message: "Failed to validate permissions".to_string(),
-            status_code: StatusCode::INTERNAL_SERVER_ERROR,
-        }
-        .into_response(),
-    }
+    })
 }
 
 async fn fetch_permissions(

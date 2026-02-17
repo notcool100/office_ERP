@@ -61,3 +61,4 @@ To populate the database with initial data (Admin user, Roles, Permissions, etc.
 
 - API endpoints under `/employees`, `/interns`, `/leave`, `/attendance`, `/departments`, `/positions`, `/permissions`, `/persons`, and `/users` are now enforced by role-based permissions tied to navigation paths.
 - Permissions are derived from the employee/intern record linked to the logged-in user (`person_id`) and evaluated against `role_permissions`.
+- Positions can be linked to departments via `department_id` for cleaner role grouping.

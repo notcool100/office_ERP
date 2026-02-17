@@ -426,6 +426,10 @@
                 </div>
             </form>
         </div>
-        <div class="modal-backdrop" on:click={() => (showModal = false)}></div>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showModal = false)}>
+                close
+            </button>
+        </form>
     </div>
 {/if}

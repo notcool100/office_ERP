@@ -225,10 +225,10 @@
                             </option>
                         {/each}
                     </select>
-                    <label class="label">
+                    <div class="label">
                         <span class="label-text-alt text-warning"
                             >This links the login to an employee/person record.</span>
-                    </label>
+                    </div>
                 </div>
 
                 <div class="form-control">
@@ -310,11 +310,10 @@
                 </div>
             </form>
         </div>
-        <form
-            method="dialog"
-            class="modal-backdrop"
-            on:click={() => (showModal = false)}>
-            <button>close</button>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showModal = false)}>
+                close
+            </button>
         </form>
     </dialog>
 {/if}

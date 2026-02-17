@@ -9,12 +9,12 @@ pub fn employee_routes() -> Router {
         .route("/{id}", get(handlers::get_employee_handler))
         .route("/{id}", put(handlers::update_employee_handler))
         .route("/{id}", delete(handlers::delete_employee_handler))
-        .route_layer(rbac::require_permission("/admin/hr/employee"));
+        .layer(rbac::require_permission("/admin/hr/employee"));
 
     let face_routes = Router::new()
         .route("/config/descriptors", get(handlers::list_face_descriptors_handler))
         .route("/{id}/face-descriptor", post(handlers::update_face_descriptor_handler))
-        .route_layer(rbac::require_permission(
+        .layer(rbac::require_permission(
             "/admin/hr/attendance/register-face",
         ));
 

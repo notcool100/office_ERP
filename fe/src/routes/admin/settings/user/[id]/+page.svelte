@@ -493,11 +493,10 @@
                 </button>
             </div>
         </div>
-        <form
-            method="dialog"
-            class="modal-backdrop"
-            on:click={() => (showDeleteModal = false)}>
-            <button>close</button>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showDeleteModal = false)}>
+                close
+            </button>
         </form>
     </dialog>
 {/if}
@@ -557,14 +556,15 @@
                 </div>
             </form>
         </div>
-        <form
-            method="dialog"
-            class="modal-backdrop"
-            on:click={() => {
-                showPasswordModal = false;
-                passwordData = { newPassword: '', confirmPassword: '' };
-            }}>
-            <button>close</button>
+        <form method="dialog" class="modal-backdrop">
+            <button
+                type="button"
+                on:click={() => {
+                    showPasswordModal = false;
+                    passwordData = { newPassword: '', confirmPassword: '' };
+                }}>
+                close
+            </button>
         </form>
     </dialog>
 {/if}

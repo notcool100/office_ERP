@@ -12,13 +12,14 @@ pub async fn create_position(
 ) -> Result<Position> {
     let position = sqlx::query_as::<_, Position>(
         r#"
-        INSERT INTO positions (name, description, created_at, updated_at)
-        VALUES ($1, $2, $3, $3)
+        INSERT INTO positions (name, description, department_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $4)
         RETURNING *
         "#,
     )
     .bind(&dto.name)
     .bind(&dto.description)
+    .bind(dto.department_id)
     .bind(Utc::now().naive_utc())
     .fetch_one(pool)
     .await?;
@@ -64,14 +65,16 @@ pub async fn update_position(
         UPDATE positions
         SET name = COALESCE($1, name),
             description = COALESCE($2, description),
-            is_active = COALESCE($3, is_active),
-            updated_at = $4
-        WHERE id = $5
+            department_id = COALESCE($3, department_id),
+            is_active = COALESCE($4, is_active),
+            updated_at = $5
+        WHERE id = $6
         RETURNING *
         "#,
     )
     .bind(dto.name.as_ref().unwrap_or(&current.name))
     .bind(dto.description.or(current.description))
+    .bind(dto.department_id.or(current.department_id))
     .bind(dto.is_active.unwrap_or(current.is_active))
     .bind(Utc::now().naive_utc())
     .bind(id)

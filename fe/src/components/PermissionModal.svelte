@@ -205,10 +205,9 @@
             </button>
         </div>
     </div>
-    <form
-        method="dialog"
-        class="modal-backdrop"
-        on:click={() => dispatch('close')}>
-        <button>close</button>
+    <form method="dialog" class="modal-backdrop">
+        <button type="button" on:click={() => dispatch('close')}>
+            close
+        </button>
     </form>
 </div>

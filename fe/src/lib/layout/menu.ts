@@ -271,6 +271,13 @@ export const menuList: MenuItem[] = [
                 shortcut: 'a',
                 url: '/admin/hr/attendance',
             },
+            {
+                name: 'Register Face',
+                type: 'file',
+                icon: Clock,
+                color: 'text-info',
+                url: '/admin/hr/attendance/register-face',
+            },
         ],
     },
     {

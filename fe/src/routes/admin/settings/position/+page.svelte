@@ -15,6 +15,10 @@
     import PermissionModal from '../../../../components/PermissionModal.svelte';
     import { positionService, type Position } from '$lib/services/position';
     import {
+        departmentService,
+        type Department,
+    } from '$lib/services/department';
+    import {
         navigationStore,
         canCreate,
         canUpdate,
@@ -33,6 +37,7 @@
     ]);
 
     let positions: Position[] = [];
+    let departments: Department[] = [];
     let loading = true;
     let showModal = false;
     let showPermissionModal = false;
@@ -42,12 +47,18 @@
     let formData = {
         name: '',
         description: '',
+        department_id: '',
     };
 
     async function loadPositions() {
         loading = true;
         try {
-            positions = await positionService.getAll();
+            const [positionsResponse, departmentsResponse] = await Promise.all([
+                positionService.getAll(),
+                departmentService.getAll(true),
+            ]);
+            positions = positionsResponse;
+            departments = departmentsResponse;
         } catch (error) {
             console.error('Failed to load positions:', error);
         } finally {
@@ -57,7 +68,7 @@
 
     function openCreateModal() {
         editingPosition = null;
-        formData = { name: '', description: '' };
+        formData = { name: '', description: '', department_id: '' };
         showModal = true;
     }
 
@@ -66,6 +77,7 @@
         formData = {
             name: pos.name,
             description: pos.description || '',
+            department_id: pos.department_id || '',
         };
         showModal = true;
     }
@@ -77,10 +89,19 @@
 
     async function handleSubmit() {
         try {
+            const payload = {
+                ...formData,
+                department_id: formData.department_id || undefined,
+            };
+
+            if (!payload.department_id) {
+                alert('Please select a department for this position.');
+                return;
+            }
             if (editingPosition) {
-                await positionService.update(editingPosition.id, formData);
+                await positionService.update(editingPosition.id, payload);
             } else {
-                await positionService.create(formData);
+                await positionService.create(payload);
             }
             showModal = false;
             await loadPositions();
@@ -116,6 +137,11 @@
     $: canCreateHere = canCreate(navPath, $navigationStore);
     $: canUpdateHere = canUpdate(navPath, $navigationStore);
     $: canDeleteHere = canDelete(navPath, $navigationStore);
+
+    function getDepartmentName(departmentId: string | null) {
+        if (!departmentId) return 'Unassigned';
+        return departments.find((dept) => dept.id === departmentId)?.name || 'Unassigned';
+    }
 </script>
 
 <PageSection>
@@ -139,6 +165,7 @@
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Department</th>
                         <th>Description</th>
                         <th>Status</th>
                         <th class="text-right">Actions</th>
@@ -148,6 +175,7 @@
                     {#each positions as pos}
                         <tr>
                             <td>{pos.name}</td>
+                            <td>{getDepartmentName(pos.department_id)}</td>
                             <td>{pos.description || '-'}</td>
                             <td>
                                 <div class="form-control">
@@ -224,6 +252,21 @@
                         required />
                 </div>
                 <div class="form-control mt-4">
+                    <label class="label" for="departmentId">
+                        <span class="label-text">Department *</span>
+                    </label>
+                    <select
+                        id="departmentId"
+                        class="select select-bordered"
+                        bind:value={formData.department_id}
+                        required>
+                        <option value="" disabled>Select Department</option>
+                        {#each departments as dept}
+                            <option value={dept.id}>{dept.name}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="form-control mt-4">
                     <label class="label" for="description">
                         <span class="label-text">Description</span>
                     </label>
@@ -250,11 +293,10 @@
                 </div>
             </form>
         </div>
-        <form
-            method="dialog"
-            class="modal-backdrop"
-            on:click={() => (showModal = false)}>
-            <button>close</button>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showModal = false)}>
+                close
+            </button>
         </form>
     </dialog>
 {/if}

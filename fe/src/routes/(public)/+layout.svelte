@@ -1,6 +1,6 @@
 <script>
     import '../../app.css';
-    let open = false;
+    let open = $state(false);
     const { children } = $props();
 </script>
 
@@ -30,7 +30,9 @@
                 </label>
             </div>
             <div class="flex-1">
-                <a class="btn btn-ghost text-xl">Team 1 | Free</a>
+                <button type="button" class="btn btn-ghost text-xl">
+                    Team 1 | Free
+                </button>
             </div>
             <div class="flex-none gap-4">
                 <div class="form-control hidden md:block">
@@ -40,11 +42,16 @@
                         class="input input-bordered w-24 md:w-auto" />
                 </div>
                 <div class="dropdown dropdown-end">
-                    <label tabIndex={0} class="btn btn-ghost btn-circle avatar">
+                    <button
+                        type="button"
+                        tabIndex={0}
+                        class="btn btn-ghost btn-circle avatar">
                         <div class="w-10 rounded-full">
-                            <img src="https://i.pravatar.cc/300" />
+                            <img
+                                src="https://i.pravatar.cc/300"
+                                alt="User avatar" />
                         </div>
-                    </label>
+                    </button>
                 </div>
             </div>
         </div>
@@ -61,26 +68,26 @@
             class="menu p-4 w-80 bg-gradient-to-b from-base-200 to-base-100 text-base-content overflow-y-auto shadow-lg">
             <p class="text-lg font-bold mb-4">Overview</p>
             <ul class="menu">
-                <li><a class="active">App</a></li>
-                <li><a>Ecommerce</a></li>
-                <li><a>Analytics</a></li>
-                <li><a>Banking</a></li>
-                <li><a>Booking</a></li>
-                <li><a>File</a></li>
-                <li><a>Course</a></li>
+                <li><button type="button" class="active">App</button></li>
+                <li><button type="button">Ecommerce</button></li>
+                <li><button type="button">Analytics</button></li>
+                <li><button type="button">Banking</button></li>
+                <li><button type="button">Booking</button></li>
+                <li><button type="button">File</button></li>
+                <li><button type="button">Course</button></li>
             </ul>
 
             <p class="text-lg font-bold mt-6 mb-4">Management</p>
             <ul class="menu">
-                <li><a>User</a></li>
-                <li><a>Cards</a></li>
-                <li><a>List</a></li>
-                <li><a>Create</a></li>
-                <li><a>Edit</a></li>
-                <li><a>Account</a></li>
-                <li><a>Product</a></li>
-                <li><a>Order</a></li>
-                <li><a>Invoice</a></li>
+                <li><button type="button">User</button></li>
+                <li><button type="button">Cards</button></li>
+                <li><button type="button">List</button></li>
+                <li><button type="button">Create</button></li>
+                <li><button type="button">Edit</button></li>
+                <li><button type="button">Account</button></li>
+                <li><button type="button">Product</button></li>
+                <li><button type="button">Order</button></li>
+                <li><button type="button">Invoice</button></li>
             </ul>
         </aside>
     </div>

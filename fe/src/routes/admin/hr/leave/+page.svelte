@@ -389,8 +389,11 @@
                 </div>
             </form>
         </div>
-        <div class="modal-backdrop" on:click={() => (showRequestModal = false)}>
-        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showRequestModal = false)}>
+                close
+            </button>
+        </form>
     </div>
 {/if}
 
@@ -442,7 +445,10 @@
                     >Close</button>
             </div>
         </div>
-        <div class="modal-backdrop" on:click={() => (showBalanceModal = false)}>
-        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showBalanceModal = false)}>
+                close
+            </button>
+        </form>
     </div>
 {/if}

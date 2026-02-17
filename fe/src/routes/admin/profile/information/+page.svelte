@@ -580,9 +580,9 @@
                         bind:value={passwordData.newPassword}
                         required
                         minlength="6" />
-                    <label class="label">
+                    <div class="label">
                         <span class="label-text-alt">Minimum 6 characters</span>
-                    </label>
+                    </div>
                 </div>
 
                 <div class="form-control">
@@ -616,15 +616,16 @@
                 </div>
             </form>
         </div>
-        <form
-            method="dialog"
-            class="modal-backdrop"
-            on:click={() => {
-                showPasswordModal = false;
-                passwordData = { newPassword: '', confirmPassword: '' };
-                errorMessage = '';
-            }}>
-            <button>close</button>
+        <form method="dialog" class="modal-backdrop">
+            <button
+                type="button"
+                on:click={() => {
+                    showPasswordModal = false;
+                    passwordData = { newPassword: '', confirmPassword: '' };
+                    errorMessage = '';
+                }}>
+                close
+            </button>
         </form>
     </dialog>
 {/if}

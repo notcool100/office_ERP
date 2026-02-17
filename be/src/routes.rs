@@ -21,36 +21,36 @@ pub fn build_routes() -> Router {
         .nest("/employees", employee_routes())
         .nest(
             "/interns",
-            intern_routes().route_layer(rbac::require_permission("/admin/hr/intern")),
+            intern_routes().layer(rbac::require_permission("/admin/hr/intern")),
         )
         .nest(
             "/leave",
-            leave_routes().route_layer(rbac::require_permission("/admin/hr/leave")),
+            leave_routes().layer(rbac::require_permission("/admin/hr/leave")),
         )
         .nest(
             "/attendance",
-            attendance_routes().route_layer(rbac::require_permission("/admin/hr/attendance")),
+            attendance_routes().layer(rbac::require_permission("/admin/hr/attendance")),
         )
         .nest(
             "/departments",
-            department_routes().route_layer(rbac::require_permission("/admin/settings/department")),
+            department_routes().layer(rbac::require_permission("/admin/settings/department")),
         )
         .nest(
             "/positions",
-            position_routes().route_layer(rbac::require_permission("/admin/settings/position")),
+            position_routes().layer(rbac::require_permission("/admin/settings/position")),
         )
         .nest("/navigation", navigation_routes())
         .nest(
             "/permissions",
-            permissions_routes().route_layer(rbac::require_permission("/admin/settings/permissions")),
+            permissions_routes().layer(rbac::require_permission("/admin/settings/permissions")),
         )
         .nest(
             "/persons",
-            person_routes().route_layer(rbac::require_permission("/admin/hr/person")),
+            person_routes().layer(rbac::require_permission("/admin/hr/person")),
         )
         .nest(
             "/users",
-            user_routes().route_layer(rbac::require_permission("/admin/settings/user")),
+            user_routes().layer(rbac::require_permission("/admin/settings/user")),
         )
         .route_layer(axum::middleware::from_fn(
             crate::middlewares::auth::authenticate,

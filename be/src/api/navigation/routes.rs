@@ -13,7 +13,7 @@ pub fn navigation_routes() -> Router {
         .route("/{id}", get(handlers::get_navigation_handler))
         .route("/{id}", put(handlers::update_navigation_handler))
         .route("/{id}", delete(handlers::delete_navigation_handler))
-        .route_layer(rbac::require_permission("/admin/settings/navigation"));
+        .layer(rbac::require_permission("/admin/settings/navigation"));
 
     Router::new()
         .route("/user", get(handlers::get_user_navigation_handler)

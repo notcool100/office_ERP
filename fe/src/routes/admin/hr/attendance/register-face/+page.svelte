@@ -14,7 +14,6 @@
         RefreshCw,
     } from 'lucide-svelte';
     import { navigationStore, canCreate } from '$lib/stores/navigation';
-    import { navigationStore, canUpdate } from '$lib/stores/navigation';
     import PageSection from '../../../../../components/PageSection.svelte';
 
     let videoEl: HTMLVideoElement;

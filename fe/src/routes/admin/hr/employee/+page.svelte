@@ -190,9 +190,28 @@
         loadEmployees();
     }
 
+    $: availablePositions =
+        formData.department
+            ? positions.filter(
+                  (pos) =>
+                      !pos.department_id ||
+                      pos.department_id === formData.department,
+              )
+            : positions;
+
     $: canCreateHere = canCreate(navPath, $navigationStore);
     $: canUpdateHere = canUpdate(navPath, $navigationStore);
     $: canDeleteHere = canDelete(navPath, $navigationStore);
+
+    function getDepartmentNameById(departmentId?: string) {
+        if (!departmentId) return 'N/A';
+        return departments.find((dept) => dept.id === departmentId)?.name || 'N/A';
+    }
+
+    function getPositionNameById(positionId?: string) {
+        if (!positionId) return 'N/A';
+        return positions.find((pos) => pos.id === positionId)?.name || 'N/A';
+    }
 
     const totalPages = Math.ceil(total / pageSize);
 </script>
@@ -256,8 +275,8 @@
                                 {employee.middleName || ''}
                                 {employee.lastName}</td>
                             <td>{employee.email}</td>
-                            <td>{employee.department || 'N/A'}</td>
-                            <td>{employee.position || 'N/A'}</td>
+                            <td>{getDepartmentNameById(employee.department)}</td>
+                            <td>{getPositionNameById(employee.position)}</td>
                             <td>
                                 <span
                                     class="badge"
@@ -369,13 +388,13 @@
                             {/each}
                         </select>
                         {#if modalMode === 'create'}
-                            <label class="label">
+                            <div class="label">
                                 <a
                                     href="/admin/hr/person"
                                     class="label-text-alt link link-primary">
                                     + Add new person
                                 </a>
-                            </label>
+                            </div>
                         {/if}
                     </div>
 
@@ -387,6 +406,7 @@
                             id="department"
                             class="select select-bordered"
                             bind:value={formData.department}
+                            on:change={() => (formData.position = '')}
                             required>
                             <option value="" disabled>Select Department</option>
                             {#each departments as dept}
@@ -405,7 +425,7 @@
                             bind:value={formData.position}
                             required>
                             <option value="" disabled>Select Position</option>
-                            {#each positions as pos}
+                            {#each availablePositions as pos}
                                 <option value={pos.id}>{pos.name}</option>
                             {/each}
                         </select>
@@ -467,6 +487,10 @@
                 </div>
             </form>
         </div>
-        <div class="modal-backdrop" on:click={() => (showModal = false)}></div>
+        <form method="dialog" class="modal-backdrop">
+            <button type="button" on:click={() => (showModal = false)}>
+                close
+            </button>
+        </form>
     </div>
 {/if}
