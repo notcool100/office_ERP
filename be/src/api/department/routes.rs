@@ -1,5 +1,8 @@
 use crate::api::department::handlers;
-use axum::{routing::{delete, get, post, put}, Router};
+use axum::{
+    Router,
+    routing::{delete, get, post, put},
+};
 
 pub fn department_routes() -> Router {
     Router::new()

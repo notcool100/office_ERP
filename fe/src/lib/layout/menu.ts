@@ -40,6 +40,14 @@ export const menuList: MenuItem[] = [
         url: '/admin/dashboard',
     },
     {
+        name: 'Projects',
+        type: 'file',
+        icon: ClipboardList,
+        shortcut: 'p',
+        color: 'text-primary',
+        url: '/admin/projects',
+    },
+    {
         name: 'Profile',
         type: 'folder',
         expanded: true,

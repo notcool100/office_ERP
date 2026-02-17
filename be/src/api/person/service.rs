@@ -1,10 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use super::dto::{
+    CreatePersonDto, ListPersonsQuery, ListPersonsResponse, PersonResponseDto, UpdatePersonDto,
+};
 use crate::models::person::Person;
-use super::dto::{CreatePersonDto, ListPersonsQuery, ListPersonsResponse, PersonResponseDto, UpdatePersonDto};
 
 pub async fn create_person(pool: &PgPool, dto: CreatePersonDto) -> Result<Person> {
     let person = sqlx::query_as::<_, Person>(
@@ -45,7 +47,9 @@ pub async fn list_persons(pool: &PgPool, query: ListPersonsQuery) -> Result<List
     let mut select_query = "SELECT * FROM persons".to_string();
 
     if let Some(_search) = &query.search {
-        conditions.push("(first_name ILIKE $1 OR last_name ILIKE $1 OR middle_name ILIKE $1)".to_string());
+        conditions.push(
+            "(first_name ILIKE $1 OR last_name ILIKE $1 OR middle_name ILIKE $1)".to_string(),
+        );
     }
 
     if conditions.len() > 1 {
@@ -54,7 +58,11 @@ pub async fn list_persons(pool: &PgPool, query: ListPersonsQuery) -> Result<List
         select_query.push_str(&where_clause);
     }
 
-    select_query.push_str(&format!(" ORDER BY created_at DESC LIMIT ${} OFFSET ${}", if query.search.is_some() { 2 } else { 1 }, if query.search.is_some() { 3 } else { 2 }));
+    select_query.push_str(&format!(
+        " ORDER BY created_at DESC LIMIT ${} OFFSET ${}",
+        if query.search.is_some() { 2 } else { 1 },
+        if query.search.is_some() { 3 } else { 2 }
+    ));
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
     let mut select_q = sqlx::query_as::<_, Person>(&select_query);
@@ -101,7 +109,7 @@ pub async fn update_person(pool: &PgPool, id: Uuid, dto: UpdatePersonDto) -> Res
     // If the DTO has None, it means "don't update". If it has Some(None), it's not possible with this DTO structure.
     // The UpdatePersonDto has Option<String>. If we want to support clearing, we need Option<Option<String>>.
     // For simplicity, we assume None means no change. If user sends Some(""), we can treat as None in DB if we want, but let's stick to simple update.
-    .bind(dto.middle_name.or(current.middle_name)) 
+    .bind(dto.middle_name.or(current.middle_name))
     .bind(dto.last_name.as_ref().unwrap_or(&current.last_name))
     .bind(id)
     .fetch_one(pool)

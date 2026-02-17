@@ -1,18 +1,12 @@
 use axum::{Router, routing::get};
 
 use crate::api::{
-    attendance::routes::attendance_routes,
-    auth::routes::auth_routes,
-    department::routes::department_routes,
-    employee::routes::employee_routes,
-    home::handlers::health_check_handler,
-    intern::routes::intern_routes,
-    leave::routes::leave_routes,
-    navigation::routes::navigation_routes,
-    permissions::routes::permissions_routes,
-    position::routes::position_routes,
-    person::routes::person_routes,
-    user::routes::user_routes,
+    attendance::routes::attendance_routes, auth::routes::auth_routes,
+    department::routes::department_routes, employee::routes::employee_routes,
+    home::handlers::health_check_handler, intern::routes::intern_routes,
+    leave::routes::leave_routes, navigation::routes::navigation_routes,
+    permissions::routes::permissions_routes, person::routes::person_routes,
+    position::routes::position_routes, project::routes::project_routes, user::routes::user_routes,
 };
 use crate::middlewares::rbac;
 
@@ -38,6 +32,10 @@ pub fn build_routes() -> Router {
         .nest(
             "/positions",
             position_routes().layer(rbac::require_permission("/admin/settings/position")),
+        )
+        .nest(
+            "/projects",
+            project_routes().layer(rbac::require_permission("/admin/projects")),
         )
         .nest("/navigation", navigation_routes())
         .nest(

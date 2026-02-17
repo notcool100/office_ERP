@@ -9,4 +9,5 @@ pub mod navigation;
 pub mod permissions;
 pub mod person;
 pub mod position;
+pub mod project;
 pub mod user;

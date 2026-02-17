@@ -1,7 +1,6 @@
 use chrono::NaiveDate;
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
-
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

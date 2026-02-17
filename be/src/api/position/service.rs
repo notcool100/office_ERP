@@ -1,15 +1,12 @@
 use crate::models::position::Position;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::dto::{CreatePositionDto, UpdatePositionDto};
 
-pub async fn create_position(
-    pool: &PgPool,
-    dto: CreatePositionDto,
-) -> Result<Position> {
+pub async fn create_position(pool: &PgPool, dto: CreatePositionDto) -> Result<Position> {
     let position = sqlx::query_as::<_, Position>(
         r#"
         INSERT INTO positions (name, description, department_id, created_at, updated_at)
@@ -27,15 +24,12 @@ pub async fn create_position(
     Ok(position)
 }
 
-pub async fn get_positions(
-    pool: &PgPool,
-    is_active: Option<bool>,
-) -> Result<Vec<Position>> {
+pub async fn get_positions(pool: &PgPool, is_active: Option<bool>) -> Result<Vec<Position>> {
     let query = match is_active {
-        Some(active) => {
-            sqlx::query_as::<_, Position>("SELECT * FROM positions WHERE is_active = $1 ORDER BY name")
-                .bind(active)
-        }
+        Some(active) => sqlx::query_as::<_, Position>(
+            "SELECT * FROM positions WHERE is_active = $1 ORDER BY name",
+        )
+        .bind(active),
         None => sqlx::query_as::<_, Position>("SELECT * FROM positions ORDER BY name"),
     };
 
@@ -53,11 +47,7 @@ pub async fn get_position_by_id(pool: &PgPool, id: Uuid) -> Result<Position> {
     Ok(position)
 }
 
-pub async fn update_position(
-    pool: &PgPool,
-    id: Uuid,
-    dto: UpdatePositionDto,
-) -> Result<Position> {
+pub async fn update_position(pool: &PgPool, id: Uuid, dto: UpdatePositionDto) -> Result<Position> {
     let current = get_position_by_id(pool, id).await?;
 
     let position = sqlx::query_as::<_, Position>(

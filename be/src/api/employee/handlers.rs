@@ -1,14 +1,17 @@
 use crate::{
     api::employee::{
-        dto::{CreateEmployeeRequest, ListEmployeesQuery, UpdateEmployeeRequest, UpdateFaceDescriptorRequest},
+        dto::{
+            CreateEmployeeRequest, ListEmployeesQuery, UpdateEmployeeRequest,
+            UpdateFaceDescriptorRequest,
+        },
         service,
     },
     db::Db,
 };
 use axum::{
+    Json,
     extract::{Extension, Path, Query},
     http::StatusCode,
-    Json,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -22,7 +25,10 @@ pub async fn create_employee_handler(
         Err(e) => {
             eprintln!("Error creating employee: {}", e);
             // Return the error message to the client
-            Ok((StatusCode::BAD_REQUEST, Json(json!({ "error": e.to_string() }))))
+            Ok((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e.to_string() })),
+            ))
         }
     }
 }
@@ -93,4 +99,3 @@ pub async fn list_face_descriptors_handler(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::OK, Json(json!(descriptors))))
 }
-

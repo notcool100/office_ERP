@@ -6,7 +6,7 @@ use crate::{
     db::Db,
     models::employee::EmployeeWithPerson,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
@@ -14,12 +14,11 @@ use uuid::Uuid;
 
 pub async fn create_employee(db: &Db, req: CreateEmployeeRequest) -> Result<EmployeeResponse> {
     // Verify person exists
-    let person_exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM persons WHERE id = $1)"
-    )
-    .bind(req.person_id)
-    .fetch_one(db)
-    .await?;
+    let person_exists =
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM persons WHERE id = $1)")
+            .bind(req.person_id)
+            .fetch_one(db)
+            .await?;
 
     if !person_exists {
         return Err(anyhow!("Person not found"));
@@ -27,7 +26,7 @@ pub async fn create_employee(db: &Db, req: CreateEmployeeRequest) -> Result<Empl
 
     // Check if employee_id is already taken
     let employee_id_exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM employees WHERE employee_id = $1)"
+        "SELECT EXISTS(SELECT 1 FROM employees WHERE employee_id = $1)",
     )
     .bind(&req.employee_id)
     .fetch_one(db)
@@ -37,7 +36,9 @@ pub async fn create_employee(db: &Db, req: CreateEmployeeRequest) -> Result<Empl
         return Err(anyhow!("Employee ID already exists"));
     }
 
-    let salary = req.salary.map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
+    let salary = req
+        .salary
+        .map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
 
     let employee = sqlx::query_as::<_, EmployeeWithPerson>(
         r#"
@@ -95,10 +96,7 @@ pub async fn get_employee(db: &Db, id: Uuid) -> Result<EmployeeResponse> {
     Ok(map_employee_to_response(employee))
 }
 
-pub async fn list_employees(
-    db: &Db,
-    query: ListEmployeesQuery,
-) -> Result<ListEmployeesResponse> {
+pub async fn list_employees(db: &Db, query: ListEmployeesQuery) -> Result<ListEmployeesResponse> {
     let page = query.page.unwrap_or(1).max(1);
     let page_size = query.page_size.unwrap_or(10).min(100);
     let offset = (page - 1) * page_size;
@@ -152,7 +150,9 @@ pub async fn list_employees(
         ORDER BY e.created_at DESC
         LIMIT ${} OFFSET ${}
         "#,
-        where_clause, param_index, param_index + 1
+        where_clause,
+        param_index,
+        param_index + 1
     );
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
@@ -181,7 +181,10 @@ pub async fn list_employees(
     let employees = select_q.fetch_all(db).await?;
 
     Ok(ListEmployeesResponse {
-        employees: employees.into_iter().map(map_employee_to_response).collect(),
+        employees: employees
+            .into_iter()
+            .map(map_employee_to_response)
+            .collect(),
         total,
         page,
         page_size,
@@ -193,7 +196,9 @@ pub async fn update_employee(
     id: Uuid,
     req: UpdateEmployeeRequest,
 ) -> Result<EmployeeResponse> {
-    let salary = req.salary.map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
+    let salary = req
+        .salary
+        .map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
 
     let employee = sqlx::query_as::<_, EmployeeWithPerson>(
         r#"
@@ -231,10 +236,11 @@ pub async fn update_employee(
 }
 
 pub async fn delete_employee(db: &Db, id: Uuid) -> Result<()> {
-    let result = sqlx::query("UPDATE employees SET status = 'inactive', updated_at = NOW() WHERE id = $1")
-        .bind(id)
-        .execute(db)
-        .await?;
+    let result =
+        sqlx::query("UPDATE employees SET status = 'inactive', updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(db)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(anyhow!("Employee not found"));
@@ -264,11 +270,12 @@ fn map_employee_to_response(emp: EmployeeWithPerson) -> EmployeeResponse {
 }
 
 pub async fn update_face_descriptor(db: &Db, id: Uuid, descriptor: String) -> Result<()> {
-    let result = sqlx::query("UPDATE employees SET face_descriptor = $1, updated_at = NOW() WHERE id = $2")
-        .bind(descriptor)
-        .bind(id)
-        .execute(db)
-        .await?;
+    let result =
+        sqlx::query("UPDATE employees SET face_descriptor = $1, updated_at = NOW() WHERE id = $2")
+            .bind(descriptor)
+            .bind(id)
+            .execute(db)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(anyhow!("Employee not found"));
@@ -285,4 +292,3 @@ pub async fn get_all_face_descriptors(db: &Db) -> Result<Vec<(String, String)>> 
     .await?;
     Ok(rows)
 }
-

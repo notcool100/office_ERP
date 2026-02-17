@@ -1,15 +1,12 @@
-use anyhow::{anyhow, Result};
 use crate::models::role_permission::RolePermission;
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::dto::{AssignPermissionDto, PermissionResponseDto};
 
-pub async fn assign_permission(
-    pool: &PgPool,
-    dto: AssignPermissionDto,
-) -> Result<RolePermission> {
+pub async fn assign_permission(pool: &PgPool, dto: AssignPermissionDto) -> Result<RolePermission> {
     // Validate that at least one of department_id or position_id is provided
     if dto.department_id.is_none() && dto.position_id.is_none() {
         return Err(anyhow!(
@@ -42,8 +39,7 @@ pub async fn assign_permission(
     .bind(dto.can_delete)
     .bind(Utc::now().naive_utc())
     .fetch_one(pool)
-    .await
-    ?;
+    .await?;
 
     Ok(permission)
 }
@@ -123,10 +119,7 @@ pub async fn get_permissions(
         query_builder = query_builder.bind(nav_id);
     }
 
-    let perms = query_builder
-        .fetch_all(pool)
-        .await
-        ?;
+    let perms = query_builder.fetch_all(pool).await?;
 
     let response = perms
         .into_iter()
@@ -154,8 +147,7 @@ pub async fn delete_permission(pool: &PgPool, id: Uuid) -> Result<()> {
     sqlx::query("DELETE FROM role_permissions WHERE id = $1")
         .bind(id)
         .execute(pool)
-        .await
-        ?;
+        .await?;
 
     Ok(())
 }

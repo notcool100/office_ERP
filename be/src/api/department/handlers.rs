@@ -1,8 +1,11 @@
-use crate::{api::department::{dto::*, service}, db::Db};
+use crate::{
+    api::department::{dto::*, service},
+    db::Db,
+};
 use axum::{
+    Json,
     extract::{Extension, Path, Query},
     http::StatusCode,
-    Json,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -15,7 +18,7 @@ pub async fn create_department_handler(
     let department = service::create_department(&db, payload)
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
+
     let response = DepartmentResponseDto {
         id: department.id,
         name: department.name,
@@ -24,7 +27,7 @@ pub async fn create_department_handler(
         created_at: department.created_at,
         updated_at: department.updated_at,
     };
-    
+
     Ok((StatusCode::CREATED, Json(json!(response))))
 }
 
@@ -33,11 +36,11 @@ pub async fn get_departments_handler(
     Query(query): Query<HashMap<String, String>>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
     let is_active = query.get("is_active").and_then(|v| v.parse::<bool>().ok());
-    
+
     let departments = service::get_departments(&db, is_active)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let response: Vec<DepartmentResponseDto> = departments
         .into_iter()
         .map(|dept| DepartmentResponseDto {
@@ -49,7 +52,7 @@ pub async fn get_departments_handler(
             updated_at: dept.updated_at,
         })
         .collect();
-    
+
     Ok((StatusCode::OK, Json(json!(response))))
 }
 
@@ -60,7 +63,7 @@ pub async fn get_department_handler(
     let department = service::get_department_by_id(&db, id)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     let response = DepartmentResponseDto {
         id: department.id,
         name: department.name,
@@ -69,7 +72,7 @@ pub async fn get_department_handler(
         created_at: department.created_at,
         updated_at: department.updated_at,
     };
-    
+
     Ok((StatusCode::OK, Json(json!(response))))
 }
 
@@ -81,7 +84,7 @@ pub async fn update_department_handler(
     let department = service::update_department(&db, id, payload)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     let response = DepartmentResponseDto {
         id: department.id,
         name: department.name,
@@ -90,7 +93,7 @@ pub async fn update_department_handler(
         created_at: department.created_at,
         updated_at: department.updated_at,
     };
-    
+
     Ok((StatusCode::OK, Json(json!(response))))
 }
 
@@ -101,7 +104,7 @@ pub async fn delete_department_handler(
     service::delete_department(&db, id)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     Ok((
         StatusCode::OK,
         Json(json!({"message": "Department deleted successfully"})),

@@ -1,6 +1,9 @@
 use crate::api::employee::handlers;
 use crate::middlewares::rbac;
-use axum::{routing::{delete, get, post, put}, Router};
+use axum::{
+    Router,
+    routing::{delete, get, post, put},
+};
 
 pub fn employee_routes() -> Router {
     let crud_routes = Router::new()
@@ -12,8 +15,14 @@ pub fn employee_routes() -> Router {
         .layer(rbac::require_permission("/admin/hr/employee"));
 
     let face_routes = Router::new()
-        .route("/config/descriptors", get(handlers::list_face_descriptors_handler))
-        .route("/{id}/face-descriptor", post(handlers::update_face_descriptor_handler))
+        .route(
+            "/config/descriptors",
+            get(handlers::list_face_descriptors_handler),
+        )
+        .route(
+            "/{id}/face-descriptor",
+            post(handlers::update_face_descriptor_handler),
+        )
         .layer(rbac::require_permission(
             "/admin/hr/attendance/register-face",
         ));

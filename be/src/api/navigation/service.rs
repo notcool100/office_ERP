@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::models::navigation_item::NavigationItem;
+use anyhow::Result;
 use chrono::Utc;
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -45,23 +45,16 @@ pub async fn get_navigation_items(
         ),
     };
 
-    let items = query
-        .fetch_all(pool)
-        .await
-        ?;
+    let items = query.fetch_all(pool).await?;
 
     Ok(items)
 }
 
-pub async fn get_navigation_item_by_id(
-    pool: &PgPool,
-    id: Uuid,
-) -> Result<NavigationItem> {
+pub async fn get_navigation_item_by_id(pool: &PgPool, id: Uuid) -> Result<NavigationItem> {
     let item = sqlx::query_as::<_, NavigationItem>("SELECT * FROM navigation_items WHERE id = $1")
         .bind(id)
         .fetch_one(pool)
-        .await
-        ?;
+        .await?;
 
     Ok(item)
 }
@@ -96,8 +89,7 @@ pub async fn update_navigation_item(
     .bind(Utc::now().naive_utc())
     .bind(id)
     .fetch_one(pool)
-    .await
-    ?;
+    .await?;
 
     Ok(item)
 }
@@ -107,8 +99,7 @@ pub async fn delete_navigation_item(pool: &PgPool, id: Uuid) -> Result<()> {
         .bind(Utc::now().naive_utc())
         .bind(id)
         .execute(pool)
-        .await
-        ?;
+        .await?;
 
     Ok(())
 }
@@ -150,8 +141,7 @@ pub async fn get_user_navigation(
     )
     .bind(user_id)
     .fetch_optional(pool)
-    .await
-    ?;
+    .await?;
 
     if role_info.is_none() {
         // User has no employee/intern record - return empty navigation
@@ -187,8 +177,7 @@ pub async fn get_user_navigation(
     .bind(role.department_id)
     .bind(role.position_id)
     .fetch_all(pool)
-    .await
-    ?;
+    .await?;
 
     // Build hierarchical structure
     let mut items_map: HashMap<Uuid, UserNavigationItemDto> = HashMap::new();

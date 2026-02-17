@@ -1,5 +1,8 @@
 use crate::api::intern::handlers;
-use axum::{routing::{delete, get, post, put}, Router};
+use axum::{
+    Router,
+    routing::{delete, get, post, put},
+};
 
 pub fn intern_routes() -> Router {
     Router::new()

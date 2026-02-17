@@ -1,15 +1,17 @@
 use crate::{
-    api::attendance::{dto::{CheckInRequest, CheckOutRequest, ListAttendanceQuery}, service},
+    api::attendance::{
+        dto::{CheckInRequest, CheckOutRequest, ListAttendanceQuery},
+        service,
+    },
     db::Db,
 };
 use axum::{
+    Json,
     extract::{Extension, Path, Query},
     http::StatusCode,
-    Json,
 };
 use chrono::NaiveDate;
 use serde_json::json;
-
 
 pub async fn check_in_handler(
     Extension(db): Extension<Db>,
@@ -19,7 +21,10 @@ pub async fn check_in_handler(
         Ok(attendance) => Ok((StatusCode::CREATED, Json(json!(attendance)))),
         Err(e) => {
             eprintln!("Error checking in: {}", e);
-            Ok((StatusCode::BAD_REQUEST, Json(json!({ "error": e.to_string() }))))
+            Ok((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e.to_string() })),
+            ))
         }
     }
 }
@@ -33,7 +38,10 @@ pub async fn check_out_handler(
         Ok(attendance) => Ok((StatusCode::OK, Json(json!(attendance)))),
         Err(e) => {
             eprintln!("Error checking out: {}", e);
-            Ok((StatusCode::BAD_REQUEST, Json(json!({ "error": e.to_string() }))))
+            Ok((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e.to_string() })),
+            ))
         }
     }
 }
@@ -56,7 +64,10 @@ pub async fn get_attendance_summary_handler(
         Ok(summary) => Ok((StatusCode::OK, Json(json!(summary)))),
         Err(e) => {
             eprintln!("Error getting summary: {}", e);
-            Ok((StatusCode::BAD_REQUEST, Json(json!({ "error": e.to_string() }))))
+            Ok((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": e.to_string() })),
+            ))
         }
     }
 }

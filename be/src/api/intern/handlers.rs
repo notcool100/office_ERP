@@ -6,9 +6,9 @@ use crate::{
     db::Db,
 };
 use axum::{
+    Json,
     extract::{Extension, Path, Query},
     http::StatusCode,
-    Json,
 };
 use serde_json::json;
 use uuid::Uuid;

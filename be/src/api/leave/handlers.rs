@@ -7,9 +7,9 @@ use crate::{
     models::user::User,
 };
 use axum::{
+    Json,
     extract::{Extension, Path, Query},
     http::StatusCode,
-    Json,
 };
 use serde_json::json;
 use uuid::Uuid;

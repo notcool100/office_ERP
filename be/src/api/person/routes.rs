@@ -1,6 +1,9 @@
-use axum::{routing::{get, post, put, delete}, Router, middleware};
 use crate::api::person::handlers;
 use crate::middlewares::auth::authenticate;
+use axum::{
+    Router, middleware,
+    routing::{delete, get, post, put},
+};
 
 pub fn person_routes() -> Router {
     Router::new()

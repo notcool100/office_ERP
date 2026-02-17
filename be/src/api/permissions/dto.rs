@@ -1,6 +1,6 @@
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::NaiveDateTime;
 
 #[derive(Debug, Deserialize)]
 pub struct AssignPermissionDto {

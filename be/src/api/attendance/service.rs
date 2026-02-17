@@ -6,7 +6,7 @@ use crate::{
     db::Db,
     models::attendance::AttendanceWithEmployee,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{Local, NaiveDate};
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
@@ -16,17 +16,16 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     let today = Local::now().date_naive();
 
     // Lookup employee UUID from string code
-    let employee_uuid = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM employees WHERE employee_id = $1"
-    )
-    .bind(&req.employee_id)
-    .fetch_optional(db)
-    .await?
-    .ok_or_else(|| anyhow!("Employee not found with ID: {}", req.employee_id))?;
+    let employee_uuid =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM employees WHERE employee_id = $1")
+            .bind(&req.employee_id)
+            .fetch_optional(db)
+            .await?
+            .ok_or_else(|| anyhow!("Employee not found with ID: {}", req.employee_id))?;
 
     // Check if already checked in today
     let exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM attendance_records WHERE employee_id = $1 AND date = $2)"
+        "SELECT EXISTS(SELECT 1 FROM attendance_records WHERE employee_id = $1 AND date = $2)",
     )
     .bind(employee_uuid)
     .bind(today)
@@ -63,8 +62,16 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     .bind(&req.notes)
     .bind(&req.image)
     .bind(req.method.unwrap_or_else(|| "MANUAL".to_string()))
-    .bind(req.latitude.map(|l| BigDecimal::from_str(&l.to_string()).ok()).flatten())
-    .bind(req.longitude.map(|l| BigDecimal::from_str(&l.to_string()).ok()).flatten())
+    .bind(
+        req.latitude
+            .map(|l| BigDecimal::from_str(&l.to_string()).ok())
+            .flatten(),
+    )
+    .bind(
+        req.longitude
+            .map(|l| BigDecimal::from_str(&l.to_string()).ok())
+            .flatten(),
+    )
     .bind(Local::now().naive_local())
     .fetch_one(db)
     .await?;
@@ -72,17 +79,20 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     Ok(map_attendance_to_response(attendance))
 }
 
-pub async fn check_out(db: &Db, employee_id: String, req: CheckOutRequest) -> Result<AttendanceResponse> {
+pub async fn check_out(
+    db: &Db,
+    employee_id: String,
+    req: CheckOutRequest,
+) -> Result<AttendanceResponse> {
     let today = Local::now().date_naive();
 
     // Lookup employee UUID from string code
-    let employee_uuid = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM employees WHERE employee_id = $1"
-    )
-    .bind(&employee_id)
-    .fetch_optional(db)
-    .await?
-    .ok_or_else(|| anyhow!("Employee not found with ID: {}", employee_id))?;
+    let employee_uuid =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM employees WHERE employee_id = $1")
+            .bind(&employee_id)
+            .fetch_optional(db)
+            .await?
+            .ok_or_else(|| anyhow!("Employee not found with ID: {}", employee_id))?;
 
     let attendance = sqlx::query_as::<_, AttendanceWithEmployee>(
         r#"
@@ -146,7 +156,10 @@ pub async fn get_attendance_records(
 
     let where_sql = where_clauses.join(" AND ");
 
-    let count_query = format!("SELECT COUNT(*) FROM attendance_records ar WHERE {}", where_sql);
+    let count_query = format!(
+        "SELECT COUNT(*) FROM attendance_records ar WHERE {}",
+        where_sql
+    );
     let select_query = format!(
         r#"
         SELECT ar.id, ar.employee_id,
@@ -161,7 +174,9 @@ pub async fn get_attendance_records(
         ORDER BY ar.date DESC, ar.created_at DESC
         LIMIT ${} OFFSET ${}
         "#,
-        where_sql, param_index, param_index + 1
+        where_sql,
+        param_index,
+        param_index + 1
     );
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
@@ -193,7 +208,10 @@ pub async fn get_attendance_records(
     let records = select_q.fetch_all(db).await?;
 
     Ok(ListAttendanceResponse {
-        records: records.into_iter().map(map_attendance_to_response).collect(),
+        records: records
+            .into_iter()
+            .map(map_attendance_to_response)
+            .collect(),
         total,
         page,
         page_size,
@@ -207,13 +225,12 @@ pub async fn get_attendance_summary(
     end_date: NaiveDate,
 ) -> Result<AttendanceSummary> {
     // Lookup employee UUID from string code
-    let employee_uuid = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM employees WHERE employee_id = $1"
-    )
-    .bind(&employee_id)
-    .fetch_optional(db)
-    .await?
-    .ok_or_else(|| anyhow!("Employee not found with ID: {}", employee_id))?;
+    let employee_uuid =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM employees WHERE employee_id = $1")
+            .bind(&employee_id)
+            .fetch_optional(db)
+            .await?
+            .ok_or_else(|| anyhow!("Employee not found with ID: {}", employee_id))?;
     let summary = sqlx::query_as::<_, (String, i64, i64, i64, i64, Option<BigDecimal>)>(
         r#"
         SELECT 
@@ -246,7 +263,9 @@ pub async fn get_attendance_summary(
             present_days: present,
             late_days: late,
             absent_days: absent,
-            total_hours: hours.and_then(|h| h.to_string().parse().ok()).unwrap_or(0.0),
+            total_hours: hours
+                .and_then(|h| h.to_string().parse().ok())
+                .unwrap_or(0.0),
         })
     } else {
         Err(anyhow!("No attendance records found"))

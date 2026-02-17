@@ -6,37 +6,37 @@ use crate::{
     db::Db,
     models::intern::InternWithPerson,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub async fn create_intern(db: &Db, req: CreateInternRequest) -> Result<InternResponse> {
     // Verify person exists
-    let person_exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM persons WHERE id = $1)"
-    )
-    .bind(req.person_id)
-    .fetch_one(db)
-    .await?;
+    let person_exists =
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM persons WHERE id = $1)")
+            .bind(req.person_id)
+            .fetch_one(db)
+            .await?;
 
     if !person_exists {
         return Err(anyhow!("Person not found"));
     }
 
     // Check if intern_id is already taken
-    let intern_id_exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM interns WHERE intern_id = $1)"
-    )
-    .bind(&req.intern_id)
-    .fetch_one(db)
-    .await?;
+    let intern_id_exists =
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM interns WHERE intern_id = $1)")
+            .bind(&req.intern_id)
+            .fetch_one(db)
+            .await?;
 
     if intern_id_exists {
         return Err(anyhow!("Intern ID already exists"));
     }
 
-    let stipend = req.stipend.map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
+    let stipend = req
+        .stipend
+        .map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
 
     let intern = sqlx::query_as::<_, InternWithPerson>(
         r#"
@@ -177,7 +177,9 @@ pub async fn list_interns(db: &Db, query: ListInternsQuery) -> Result<ListIntern
 }
 
 pub async fn update_intern(db: &Db, id: Uuid, req: UpdateInternRequest) -> Result<InternResponse> {
-    let stipend = req.stipend.map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
+    let stipend = req
+        .stipend
+        .map(|s| BigDecimal::from_str(&s.to_string()).unwrap());
 
     let intern = sqlx::query_as::<_, InternWithPerson>(
         r#"
@@ -215,10 +217,11 @@ pub async fn update_intern(db: &Db, id: Uuid, req: UpdateInternRequest) -> Resul
 }
 
 pub async fn delete_intern(db: &Db, id: Uuid) -> Result<()> {
-    let result = sqlx::query("UPDATE interns SET status = 'terminated', updated_at = NOW() WHERE id = $1")
-        .bind(id)
-        .execute(db)
-        .await?;
+    let result =
+        sqlx::query("UPDATE interns SET status = 'terminated', updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(db)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(anyhow!("Intern not found"));

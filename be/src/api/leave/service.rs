@@ -1,13 +1,12 @@
 use crate::{
     api::leave::dto::{
         ApproveRejectLeaveRequest, CreateLeaveRequestRequest, LeaveBalanceResponse,
-        LeaveRequestResponse, LeaveTypeResponse, ListLeaveRequestsQuery,
-        ListLeaveRequestsResponse,
+        LeaveRequestResponse, LeaveTypeResponse, ListLeaveRequestsQuery, ListLeaveRequestsResponse,
     },
     db::Db,
     models::leave::{LeaveRequestWithDetails, LeaveType},
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
@@ -126,7 +125,9 @@ pub async fn list_leave_requests(
         ORDER BY lr.created_at DESC
         LIMIT ${} OFFSET ${}
         "#,
-        where_sql, param_index, param_index + 1
+        where_sql,
+        param_index,
+        param_index + 1
     );
 
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
@@ -159,7 +160,10 @@ pub async fn list_leave_requests(
     let requests = select_q.fetch_all(db).await?;
 
     Ok(ListLeaveRequestsResponse {
-        requests: requests.into_iter().map(map_leave_request_to_response).collect(),
+        requests: requests
+            .into_iter()
+            .map(map_leave_request_to_response)
+            .collect(),
         total,
         page,
         page_size,
@@ -251,7 +255,10 @@ pub async fn get_leave_types(db: &Db) -> Result<Vec<LeaveTypeResponse>> {
         .fetch_all(db)
         .await?;
 
-    Ok(leave_types.into_iter().map(map_leave_type_to_response).collect())
+    Ok(leave_types
+        .into_iter()
+        .map(map_leave_type_to_response)
+        .collect())
 }
 
 pub async fn get_leave_balance(db: &Db, employee_id: Uuid) -> Result<Vec<LeaveBalanceResponse>> {
@@ -279,9 +286,7 @@ pub async fn get_leave_balance(db: &Db, employee_id: Uuid) -> Result<Vec<LeaveBa
     Ok(balances
         .into_iter()
         .map(|(emp_id, lt_id, lt_name, total, used)| {
-            let used_days: f64 = used
-                .and_then(|u| u.to_string().parse().ok())
-                .unwrap_or(0.0);
+            let used_days: f64 = used.and_then(|u| u.to_string().parse().ok()).unwrap_or(0.0);
             LeaveBalanceResponse {
                 employee_id: emp_id,
                 leave_type_id: lt_id,

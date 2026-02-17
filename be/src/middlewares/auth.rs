@@ -50,7 +50,7 @@ pub async fn authenticate(mut req: Request<Body>, next: Next) -> Response<Body> 
     let db = match req.extensions().get::<crate::db::Db>() {
         Some(db) => db,
         None => {
-             return AuthError {
+            return AuthError {
                 message: "Database connection missing".to_string(),
                 status_code: StatusCode::INTERNAL_SERVER_ERROR,
             }

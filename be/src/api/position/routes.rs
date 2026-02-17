@@ -1,5 +1,8 @@
 use crate::api::position::handlers;
-use axum::{routing::{delete, get, post, put}, Router};
+use axum::{
+    Router,
+    routing::{delete, get, post, put},
+};
 
 pub fn position_routes() -> Router {
     Router::new()

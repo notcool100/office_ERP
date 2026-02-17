@@ -1,16 +1,14 @@
-use be::{
-    build_routes,
-    init_pool,
-    middleware,
-};
+use be::{build_routes, init_pool, middleware};
 
+use axum::http::{HeaderValue, header::CACHE_CONTROL};
 use dotenvy::dotenv;
 use std::net::SocketAddr;
-use tower_http::{cors::{CorsLayer, Any}, trace::TraceLayer, set_header::SetResponseHeaderLayer};
-use axum::http::{header::CACHE_CONTROL, HeaderValue};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    set_header::SetResponseHeaderLayer,
+    trace::TraceLayer,
+};
 use tracing_subscriber::EnvFilter;
-
-
 
 #[tokio::main]
 async fn main() {
@@ -25,7 +23,7 @@ async fn main() {
 
     let db_pool = init_pool().await.expect("Failed to init DB pool");
 
-    use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, ACCEPT};
+    use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -36,7 +34,9 @@ async fn main() {
         .layer(cors)
         .layer(SetResponseHeaderLayer::overriding(
             CACHE_CONTROL,
-            HeaderValue::from_static("no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
+            HeaderValue::from_static(
+                "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+            ),
         ))
         .layer(TraceLayer::new_for_http());
 

@@ -1,4 +1,7 @@
 pub mod attendance;
+pub mod board;
+pub mod board_column;
+pub mod card;
 pub mod department;
 pub mod employee;
 pub mod intern;
@@ -7,6 +10,8 @@ pub mod navigation_item;
 pub mod person;
 pub mod person_contact;
 pub mod position;
+pub mod project;
+pub mod project_member;
 pub mod refresh_token;
 pub mod role_permission;
 pub mod service_response;

@@ -1,15 +1,12 @@
 use crate::models::department::Department;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::dto::{CreateDepartmentDto, UpdateDepartmentDto};
 
-pub async fn create_department(
-    pool: &PgPool,
-    dto: CreateDepartmentDto,
-) -> Result<Department> {
+pub async fn create_department(pool: &PgPool, dto: CreateDepartmentDto) -> Result<Department> {
     let department = sqlx::query_as::<_, Department>(
         r#"
         INSERT INTO departments (name, description, created_at, updated_at)
@@ -26,10 +23,7 @@ pub async fn create_department(
     Ok(department)
 }
 
-pub async fn get_departments(
-    pool: &PgPool,
-    is_active: Option<bool>,
-) -> Result<Vec<Department>> {
+pub async fn get_departments(pool: &PgPool, is_active: Option<bool>) -> Result<Vec<Department>> {
     let query = match is_active {
         Some(active) => sqlx::query_as::<_, Department>(
             "SELECT * FROM departments WHERE is_active = $1 ORDER BY name",

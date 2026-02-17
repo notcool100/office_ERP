@@ -1,10 +1,10 @@
-use uuid::Uuid;
-use anyhow::{Result, anyhow};
 use crate::{
     api::{auth::password::hash_password, user::dto::CreateUserRequest},
     db::Db,
     models::user::User,
 };
+use anyhow::{Result, anyhow};
+use uuid::Uuid;
 
 pub async fn get_by_id(db: &Db, id: Uuid) -> Result<User, sqlx::Error> {
     sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
@@ -24,22 +24,24 @@ pub async fn list_users(db: &Db) -> Result<Vec<User>, axum::http::StatusCode> {
 
 pub async fn create_user(db: &Db, req: CreateUserRequest) -> Result<User> {
     // Check if user already exists for this person
-    let exists = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE person_id = $1)")
-        .bind(req.person_id)
-        .fetch_one(db)
-        .await
-        .map_err(|e| anyhow!("Database error: {}", e))?;
+    let exists =
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE person_id = $1)")
+            .bind(req.person_id)
+            .fetch_one(db)
+            .await
+            .map_err(|e| anyhow!("Database error: {}", e))?;
 
     if exists {
         return Err(anyhow!("User already exists for this person"));
     }
 
     // Check if username already exists
-    let username_exists = sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE user_name = $1)")
-        .bind(&req.user_name)
-        .fetch_one(db)
-        .await
-        .map_err(|e| anyhow!("Database error: {}", e))?;
+    let username_exists =
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE user_name = $1)")
+            .bind(&req.user_name)
+            .fetch_one(db)
+            .await
+            .map_err(|e| anyhow!("Database error: {}", e))?;
 
     if username_exists {
         return Err(anyhow!("Username already taken"));
@@ -80,7 +82,7 @@ pub async fn update_user(
     // Check if username is being changed and if it's already taken
     if let Some(ref username) = user_name {
         let username_exists = sqlx::query_scalar::<_, bool>(
-            "SELECT EXISTS(SELECT 1 FROM users WHERE user_name = $1 AND id != $2)"
+            "SELECT EXISTS(SELECT 1 FROM users WHERE user_name = $1 AND id != $2)",
         )
         .bind(username)
         .bind(id)

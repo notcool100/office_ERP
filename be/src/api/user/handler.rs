@@ -1,9 +1,9 @@
-use axum::{Extension, Json, http::StatusCode};
 use crate::{
     api::user::{dto::CreateUserRequest, service},
     db::Db,
     models::user::User,
 };
+use axum::{Extension, Json, http::StatusCode};
 
 pub async fn list_users_handler(
     Extension(db): Extension<Db>,
@@ -18,12 +18,10 @@ pub async fn create_user_handler(
     Extension(db): Extension<Db>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<User>), StatusCode> {
-    let user = service::create_user(&db, payload)
-        .await
-        .map_err(|e| {
-            eprintln!("Error creating user: {}", e);
-            StatusCode::BAD_REQUEST
-        })?;
+    let user = service::create_user(&db, payload).await.map_err(|e| {
+        eprintln!("Error creating user: {}", e);
+        StatusCode::BAD_REQUEST
+    })?;
     Ok((StatusCode::CREATED, Json(user)))
 }
 
@@ -62,12 +60,10 @@ pub async fn delete_user_handler(
     Extension(db): Extension<Db>,
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
 ) -> Result<StatusCode, StatusCode> {
-    service::delete_user(&db, id)
-        .await
-        .map_err(|e| {
-            eprintln!("Error deleting user: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    service::delete_user(&db, id).await.map_err(|e| {
+        eprintln!("Error deleting user: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
     Ok(StatusCode::NO_CONTENT)
 }
 

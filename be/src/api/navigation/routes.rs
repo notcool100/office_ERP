@@ -1,9 +1,8 @@
 use crate::api::navigation::handlers;
 use crate::middlewares::{auth::authenticate, rbac};
 use axum::{
+    Router, middleware as axum_middleware,
     routing::{delete, get, post, put},
-    Router,
-    middleware as axum_middleware,
 };
 
 pub fn navigation_routes() -> Router {
@@ -16,7 +15,10 @@ pub fn navigation_routes() -> Router {
         .layer(rbac::require_permission("/admin/settings/navigation"));
 
     Router::new()
-        .route("/user", get(handlers::get_user_navigation_handler)
-            .layer(axum_middleware::from_fn(authenticate)))
+        .route(
+            "/user",
+            get(handlers::get_user_navigation_handler)
+                .layer(axum_middleware::from_fn(authenticate)),
+        )
         .merge(management_routes)
 }

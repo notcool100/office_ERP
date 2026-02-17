@@ -1,5 +1,8 @@
 use crate::api::permissions::handlers;
-use axum::{routing::{delete, get, post}, Router};
+use axum::{
+    Router,
+    routing::{delete, get, post},
+};
 
 pub fn permissions_routes() -> Router {
     Router::new()
