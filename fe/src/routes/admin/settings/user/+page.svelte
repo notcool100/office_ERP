@@ -15,6 +15,11 @@
     import type { User, CreateUserRequest } from '$lib/types/user';
     import type { Person } from '$lib/types/person';
     import { userStore } from '$lib/stores/user';
+    import {
+        navigationStore,
+        canCreate,
+        canRead,
+    } from '$lib/stores/navigation';
 
     pageTitle.set({
         title: 'User Management',
@@ -33,6 +38,7 @@
     let showModal = false;
     let isSubmitting = false;
     let errorMessage = '';
+    const navPath = '/admin/settings/user';
 
     let formData: CreateUserRequest = {
         personId: '',
@@ -105,6 +111,9 @@
     }
 
     onMount(loadData);
+
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canReadHere = canRead(navPath, $navigationStore);
 </script>
 
 <PageSection title="Users">
@@ -114,13 +123,19 @@
         </div>
         <button
             class="btn btn-primary btn-sm gap-2"
-            on:click={() => (showModal = true)}>
+            on:click={() => (showModal = true)}
+            disabled={!canCreateHere}
+            title={!canCreateHere ? 'No permission to create' : ''}>
             <Plus size={16} />
             Add User
         </button>
     </div>
 
-    {#if loading}
+    {#if !canReadHere}
+        <div class="alert alert-warning">
+            <span>You do not have permission to view users.</span>
+        </div>
+    {:else if loading}
         <div class="flex justify-center p-8">
             <span class="loading loading-spinner loading-lg"></span>
         </div>
@@ -284,7 +299,7 @@
                     <button
                         type="submit"
                         class="btn btn-primary"
-                        disabled={isSubmitting}>
+                        disabled={isSubmitting || !canCreateHere}>
                         {#if isSubmitting}
                             <Loader2 class="animate-spin mr-2" size={16} />
                             Creating...

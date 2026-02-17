@@ -13,6 +13,8 @@
         AlertCircle,
         RefreshCw,
     } from 'lucide-svelte';
+    import { navigationStore, canCreate } from '$lib/stores/navigation';
+    import { navigationStore, canUpdate } from '$lib/stores/navigation';
     import PageSection from '../../../../../components/PageSection.svelte';
 
     let videoEl: HTMLVideoElement;
@@ -25,6 +27,7 @@
     let isCameraReady = false;
     let detectionStatus = 'Initializing...';
     let detectedDescriptor: Float32Array | undefined;
+    const navPath = '/admin/hr/attendance/register-face';
 
     let faceService = FaceRecognitionService.getInstance();
     let stream: MediaStream | null = null;
@@ -59,6 +62,8 @@
             .toLowerCase()
             .includes(search.toLowerCase()),
     );
+
+    $: canCreateHere = canCreate(navPath, $navigationStore);
 
     async function startCamera() {
         try {
@@ -204,7 +209,14 @@
 
                     <button
                         class="btn btn-primary btn-lg gap-2"
-                        disabled={!selectedEmployeeId || !detectedDescriptor}
+                        disabled={
+                            !selectedEmployeeId ||
+                            !detectedDescriptor ||
+                            !canCreateHere
+                        }
+                        title={!canCreateHere
+                            ? 'No permission to create'
+                            : ''}
                         on:click={handleRegister}>
                         <Camera />
                         Register Face

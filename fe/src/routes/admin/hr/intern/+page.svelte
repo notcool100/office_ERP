@@ -23,6 +23,12 @@
     import type { Department } from '$lib/types/department';
     import type { Position } from '$lib/types/position';
     import type { Person } from '$lib/types/person';
+    import {
+        navigationStore,
+        canCreate,
+        canUpdate,
+        canDelete,
+    } from '$lib/stores/navigation';
     import { onMount } from 'svelte';
 
     pageTitle.set({
@@ -49,6 +55,7 @@
     let showModal = false;
     let modalMode: 'create' | 'edit' = 'create';
     let selectedIntern: Intern | null = null;
+    const navPath = '/admin/hr/intern';
 
     let formData = {
         internId: '',
@@ -184,6 +191,10 @@
         loadInterns();
     }
 
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canUpdateHere = canUpdate(navPath, $navigationStore);
+    $: canDeleteHere = canDelete(navPath, $navigationStore);
+
     const totalPages = Math.ceil(total / pageSize);
 </script>
 
@@ -208,10 +219,14 @@
                 <option value="terminated">Terminated</option>
             </select>
 
-            <button class="btn btn-primary" on:click={openCreateModal}>
-                <Plus size={20} />
-                Add Intern
-            </button>
+        <button
+            class="btn btn-primary"
+            on:click={openCreateModal}
+            disabled={!canCreateHere}
+            title={!canCreateHere ? 'No permission to create' : ''}>
+            <Plus size={20} />
+            Add Intern
+        </button>
         </div>
     </div>
 
@@ -262,11 +277,19 @@
                                 <div class="flex gap-2">
                                     <button
                                         class="btn btn-sm btn-ghost"
+                                        disabled={!canUpdateHere}
+                                        title={!canUpdateHere
+                                            ? 'No permission to update'
+                                            : 'Edit intern'}
                                         on:click={() => openEditModal(intern)}>
                                         <Edit size={16} />
                                     </button>
                                     <button
                                         class="btn btn-sm btn-ghost text-error"
+                                        disabled={!canDeleteHere}
+                                        title={!canDeleteHere
+                                            ? 'No permission to delete'
+                                            : 'Delete intern'}
                                         on:click={() => handleDelete(intern)}>
                                         <Trash2 size={16} />
                                     </button>
@@ -390,7 +413,14 @@
                         type="button"
                         class="btn"
                         on:click={() => (showModal = false)}>Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={
+                            modalMode === 'create'
+                                ? !canCreateHere
+                                : !canUpdateHere
+                        }>
                         {modalMode === 'create' ? 'Create' : 'Update'}
                     </button>
                 </div>

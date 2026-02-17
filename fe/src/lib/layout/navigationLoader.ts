@@ -30,6 +30,7 @@ import {
     SquareUser,
     UserCheck,
     UserCog,
+    User,
     UserPlus,
     Users,
     Building2,
@@ -60,6 +61,7 @@ const iconMap: Record<string, any> = {
     File,
     FileX,
     UserCheck,
+    User,
     SquareUser,
     CalendarMinus,
     Clock,
@@ -70,6 +72,10 @@ const iconMap: Record<string, any> = {
     Briefcase,
     Menu,
     ShieldCheck,
+    'mdi-office-building': Building2,
+    'mdi-briefcase': Briefcase,
+    'mdi-menu': Menu,
+    'mdi-shield-account': ShieldCheck,
 };
 
 function mapNavigationToMenuItem(navItem: UserNavigationItem): MenuItem {

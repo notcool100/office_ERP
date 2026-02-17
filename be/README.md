@@ -56,3 +56,8 @@ To populate the database with initial data (Admin user, Roles, Permissions, etc.
    - Positions (System Administrator, etc.)
    - Navigation Menu Items
    - An Admin Employee linked to the 'Administration' department.
+
+## RBAC
+
+- API endpoints under `/employees`, `/interns`, `/leave`, `/attendance`, `/departments`, `/positions`, `/permissions`, `/persons`, and `/users` are now enforced by role-based permissions tied to navigation paths.
+- Permissions are derived from the employee/intern record linked to the logged-in user (`person_id`) and evaluated against `role_permissions`.

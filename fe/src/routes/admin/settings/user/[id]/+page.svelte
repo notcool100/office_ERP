@@ -26,6 +26,11 @@
     import { personService } from '$lib/services/person';
     import type { User } from '$lib/types/user';
     import type { Person } from '$lib/types/person';
+    import {
+        navigationStore,
+        canUpdate,
+        canDelete,
+    } from '$lib/stores/navigation';
 
     pageTitle.set({
         title: 'User Information',
@@ -48,6 +53,7 @@
     let showPasswordModal = false;
     let errorMessage = '';
     let successMessage = '';
+    const navPath = '/admin/settings/user';
 
     // Edit form data
     let editData = {
@@ -159,6 +165,9 @@
     }
 
     onMount(loadUserData);
+
+    $: canUpdateHere = canUpdate(navPath, $navigationStore);
+    $: canDeleteHere = canDelete(navPath, $navigationStore);
 </script>
 
 <PageSection title={user?.userName || 'User Information'}>
@@ -201,12 +210,20 @@
                                 <div class="flex gap-2">
                                     <button
                                         class="btn btn-primary btn-sm gap-2"
+                                        disabled={!canUpdateHere}
+                                        title={!canUpdateHere
+                                            ? 'No permission to update'
+                                            : 'Edit user'}
                                         on:click={enableEdit}>
                                         <Edit size={16} />
                                         Edit
                                     </button>
                                     <button
                                         class="btn btn-error btn-sm gap-2"
+                                        disabled={!canDeleteHere}
+                                        title={!canDeleteHere
+                                            ? 'No permission to delete'
+                                            : 'Delete user'}
                                         on:click={() =>
                                             (showDeleteModal = true)}>
                                         <Trash2 size={16} />
@@ -273,7 +290,7 @@
                                     <button
                                         type="submit"
                                         class="btn btn-primary gap-2"
-                                        disabled={isSaving}>
+                                        disabled={isSaving || !canUpdateHere}>
                                         {#if isSaving}
                                             <Loader2
                                                 class="animate-spin"
@@ -419,7 +436,11 @@
                         <div class="space-y-2">
                             <button
                                 class="btn btn-outline btn-block gap-2"
-                                on:click={() => (showPasswordModal = true)}>
+                                on:click={() => (showPasswordModal = true)}
+                                disabled={!canUpdateHere}
+                                title={!canUpdateHere
+                                    ? 'No permission to update'
+                                    : 'Change password'}>
                                 <Key size={16} />
                                 Change Password
                             </button>
@@ -527,7 +548,10 @@
                                 confirmPassword: '',
                             };
                         }}>Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={!canUpdateHere}>
                         Change Password
                     </button>
                 </div>

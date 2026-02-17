@@ -17,6 +17,12 @@
         CreateLeaveRequestRequest,
         LeaveBalance,
     } from '$lib/types/leave';
+    import {
+        navigationStore,
+        canCreate,
+        canRead,
+        canUpdate,
+    } from '$lib/stores/navigation';
     import { onMount } from 'svelte';
 
     pageTitle.set({
@@ -41,6 +47,7 @@
     let showRequestModal = false;
     let showBalanceModal = false;
     let selectedEmployeeId = '';
+    const navPath = '/admin/hr/leave';
 
     let formData = {
         employeeId: '',
@@ -147,6 +154,10 @@
         loadLeaveRequests();
     }
 
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canReadHere = canRead(navPath, $navigationStore);
+    $: canUpdateHere = canUpdate(navPath, $navigationStore);
+
     const totalPages = Math.ceil(total / pageSize);
 </script>
 
@@ -167,12 +178,18 @@
                 class="input input-bordered" />
             <button
                 class="btn btn-secondary"
-                on:click={() => loadLeaveBalance(selectedEmployeeId)}>
+                on:click={() => loadLeaveBalance(selectedEmployeeId)}
+                disabled={!canReadHere}
+                title={!canReadHere ? 'No permission to read' : ''}>
                 View Balance
             </button>
         </div>
 
-        <button class="btn btn-primary" on:click={openRequestModal}>
+        <button
+            class="btn btn-primary"
+            on:click={openRequestModal}
+            disabled={!canCreateHere}
+            title={!canCreateHere ? 'No permission to create' : ''}>
             <Plus size={20} />
             New Leave Request
         </button>
@@ -221,6 +238,10 @@
                                     <div class="flex gap-2">
                                         <button
                                             class="btn btn-sm btn-success"
+                                            disabled={!canUpdateHere}
+                                            title={!canUpdateHere
+                                                ? 'No permission to update'
+                                                : 'Approve leave'}
                                             on:click={() =>
                                                 approveRequest(request.id)}>
                                             <CheckCircle size={16} />
@@ -228,6 +249,10 @@
                                         </button>
                                         <button
                                             class="btn btn-sm btn-error"
+                                            disabled={!canUpdateHere}
+                                            title={!canUpdateHere
+                                                ? 'No permission to update'
+                                                : 'Reject leave'}
                                             on:click={() =>
                                                 rejectRequest(request.id)}>
                                             <XCircle size={16} />
@@ -355,8 +380,12 @@
                         class="btn"
                         on:click={() => (showRequestModal = false)}
                         >Cancel</button>
-                    <button type="submit" class="btn btn-primary"
-                        >Submit</button>
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={!canCreateHere}>
+                        Submit
+                    </button>
                 </div>
             </form>
         </div>

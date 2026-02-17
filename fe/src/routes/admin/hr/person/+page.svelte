@@ -17,6 +17,12 @@
         CreatePersonRequest,
         UpdatePersonRequest,
     } from '$lib/services/person';
+    import {
+        navigationStore,
+        canCreate,
+        canUpdate,
+        canDelete,
+    } from '$lib/stores/navigation';
     import { onMount } from 'svelte';
 
     pageTitle.set({
@@ -40,6 +46,7 @@
     let modalMode: 'create' | 'edit' = 'create';
     let selectedPerson: Person | null = null;
     let error = '';
+    const navPath = '/admin/hr/person';
 
     let formData = {
         first_name: '',
@@ -138,6 +145,10 @@
         loadPersons();
     }
 
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canUpdateHere = canUpdate(navPath, $navigationStore);
+    $: canDeleteHere = canDelete(navPath, $navigationStore);
+
     $: totalPages = Math.ceil(total / pageSize);
 </script>
 
@@ -154,7 +165,11 @@
             </button>
         </div>
 
-        <button class="btn btn-primary" on:click={openCreateModal}>
+        <button
+            class="btn btn-primary"
+            on:click={openCreateModal}
+            disabled={!canCreateHere}
+            title={!canCreateHere ? 'No permission to create' : ''}>
             <Plus size={20} />
             Add Person
         </button>
@@ -205,11 +220,19 @@
                                 <div class="flex gap-2">
                                     <button
                                         class="btn btn-sm btn-ghost"
+                                        disabled={!canUpdateHere}
+                                        title={!canUpdateHere
+                                            ? 'No permission to update'
+                                            : 'Edit person'}
                                         on:click={() => openEditModal(person)}>
                                         <Edit size={16} />
                                     </button>
                                     <button
                                         class="btn btn-sm btn-ghost text-error"
+                                        disabled={!canDeleteHere}
+                                        title={!canDeleteHere
+                                            ? 'No permission to delete'
+                                            : 'Delete person'}
                                         on:click={() => handleDelete(person)}>
                                         <Trash2 size={16} />
                                     </button>
@@ -297,7 +320,14 @@
                         type="button"
                         class="btn"
                         on:click={() => (showModal = false)}>Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={
+                            modalMode === 'create'
+                                ? !canCreateHere
+                                : !canUpdateHere
+                        }>
                         {modalMode === 'create' ? 'Create' : 'Update'}
                     </button>
                 </div>

@@ -39,3 +39,4 @@ Refer to the repository [README](../README.md) for more information about the pr
 - After logging in, users are redirected to a dummy dashboard at `/dashboard`.
 - Sidebar navigation scrolls independently from the main content for easier access.
 - `PageSection` component provides a consistent layout for page sections and is used on the profile page.
+- Permissions management is available at `/admin/settings/permissions` for assigning access by department or position.

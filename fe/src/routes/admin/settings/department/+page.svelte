@@ -17,6 +17,12 @@
         departmentService,
         type Department,
     } from '$lib/services/department';
+    import {
+        navigationStore,
+        canCreate,
+        canUpdate,
+        canDelete,
+    } from '$lib/stores/navigation';
 
     pageTitle.set({
         title: 'Departments',
@@ -35,6 +41,7 @@
     let showPermissionModal = false;
     let editingDepartment: Department | null = null;
     let permissionDepartment: Department | null = null;
+    const navPath = '/admin/settings/department';
     let formData = {
         name: '',
         description: '',
@@ -110,11 +117,19 @@
     onMount(() => {
         loadDepartments();
     });
+
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canUpdateHere = canUpdate(navPath, $navigationStore);
+    $: canDeleteHere = canDelete(navPath, $navigationStore);
 </script>
 
 <PageSection>
     <div class="text-right mb-2">
-        <button class="btn btn-primary btn-sm" on:click={openCreateModal}>
+        <button
+            class="btn btn-primary btn-sm"
+            on:click={openCreateModal}
+            disabled={!canCreateHere}
+            title={!canCreateHere ? 'No permission to create' : ''}>
             <Plus class="w-4 h-4 mr-1" /> Add Department
         </button>
     </div>
@@ -147,6 +162,7 @@
                                             type="checkbox"
                                             class="toggle toggle-success toggle-sm"
                                             checked={dept.is_active}
+                                            disabled={!canUpdateHere}
                                             on:change={() =>
                                                 toggleActive(dept)} />
                                         <span class="label-text"
@@ -167,11 +183,19 @@
                                     </button>
                                     <button
                                         class="btn btn-sm btn-ghost join-item"
+                                        disabled={!canUpdateHere}
+                                        title={!canUpdateHere
+                                            ? 'No permission to update'
+                                            : 'Edit department'}
                                         on:click={() => openEditModal(dept)}>
                                         <Edit class="w-4 h-4" />
                                     </button>
                                     <button
                                         class="btn btn-sm btn-ghost join-item text-error"
+                                        disabled={!canDeleteHere}
+                                        title={!canDeleteHere
+                                            ? 'No permission to delete'
+                                            : 'Delete department'}
                                         on:click={() => handleDelete(dept.id)}>
                                         <Trash2 class="w-4 h-4" />
                                     </button>
@@ -220,7 +244,12 @@
                         type="button"
                         class="btn"
                         on:click={() => (showModal = false)}>Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={
+                            editingDepartment ? !canUpdateHere : !canCreateHere
+                        }>
                         {editingDepartment ? 'Update' : 'Create'}
                     </button>
                 </div>

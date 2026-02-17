@@ -15,6 +15,11 @@
         AttendanceRecord,
         AttendanceSummary,
     } from '$lib/types/attendance';
+    import {
+        navigationStore,
+        canCreate,
+        canRead,
+    } from '$lib/stores/navigation';
     import { onMount } from 'svelte';
 
     pageTitle.set({
@@ -38,6 +43,7 @@
     let selectedEmployeeId = '';
     let summaryStartDate = '';
     let summaryEndDate = '';
+    const navPath = '/admin/hr/attendance';
 
     async function loadRecords() {
         loading = true;
@@ -123,6 +129,9 @@
         loadRecords();
     }
 
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canReadHere = canRead(navPath, $navigationStore);
+
     const totalPages = Math.ceil(total / pageSize);
 
     function formatDateTime(datetime: string | undefined): string {
@@ -153,13 +162,17 @@
                 <div class="flex gap-2 mt-4">
                     <button
                         class="btn btn-success flex-1"
-                        on:click={handleCheckIn}>
+                        on:click={handleCheckIn}
+                        disabled={!canCreateHere}
+                        title={!canCreateHere ? 'No permission to create' : ''}>
                         <LogIn size={20} />
                         Check In
                     </button>
                     <button
                         class="btn btn-error flex-1"
-                        on:click={handleCheckOut}>
+                        on:click={handleCheckOut}
+                        disabled={!canCreateHere}
+                        title={!canCreateHere ? 'No permission to create' : ''}>
                         <LogOut size={20} />
                         Check Out
                     </button>
@@ -214,7 +227,9 @@
 
                     <button
                         class="btn btn-primary btn-sm w-full"
-                        on:click={loadSummary}>
+                        on:click={loadSummary}
+                        disabled={!canReadHere}
+                        title={!canReadHere ? 'No permission to read' : ''}>
                         Generate Summary
                     </button>
                 </div>

@@ -14,6 +14,12 @@
     import PageSection from '../../../../components/PageSection.svelte';
     import PermissionModal from '../../../../components/PermissionModal.svelte';
     import { positionService, type Position } from '$lib/services/position';
+    import {
+        navigationStore,
+        canCreate,
+        canUpdate,
+        canDelete,
+    } from '$lib/stores/navigation';
 
     pageTitle.set({
         title: 'Positions',
@@ -32,6 +38,7 @@
     let showPermissionModal = false;
     let editingPosition: Position | null = null;
     let permissionPosition: Position | null = null;
+    const navPath = '/admin/settings/position';
     let formData = {
         name: '',
         description: '',
@@ -105,11 +112,19 @@
     onMount(() => {
         loadPositions();
     });
+
+    $: canCreateHere = canCreate(navPath, $navigationStore);
+    $: canUpdateHere = canUpdate(navPath, $navigationStore);
+    $: canDeleteHere = canDelete(navPath, $navigationStore);
 </script>
 
 <PageSection>
     <div class="text-right mb-2">
-        <button class="btn btn-primary btn-sm" on:click={openCreateModal}>
+        <button
+            class="btn btn-primary btn-sm"
+            on:click={openCreateModal}
+            disabled={!canCreateHere}
+            title={!canCreateHere ? 'No permission to create' : ''}>
             <Plus class="w-4 h-4 mr-1" /> Add Position
         </button>
     </div>
@@ -142,6 +157,7 @@
                                             type="checkbox"
                                             class="toggle toggle-success toggle-sm"
                                             checked={pos.is_active}
+                                            disabled={!canUpdateHere}
                                             on:change={() =>
                                                 toggleActive(pos)} />
                                         <span class="label-text"
@@ -162,11 +178,19 @@
                                     </button>
                                     <button
                                         class="btn btn-sm btn-ghost join-item"
+                                        disabled={!canUpdateHere}
+                                        title={!canUpdateHere
+                                            ? 'No permission to update'
+                                            : 'Edit position'}
                                         on:click={() => openEditModal(pos)}>
                                         <Edit class="w-4 h-4" />
                                     </button>
                                     <button
                                         class="btn btn-sm btn-ghost join-item text-error"
+                                        disabled={!canDeleteHere}
+                                        title={!canDeleteHere
+                                            ? 'No permission to delete'
+                                            : 'Delete position'}
                                         on:click={() => handleDelete(pos.id)}>
                                         <Trash2 class="w-4 h-4" />
                                     </button>
@@ -215,7 +239,12 @@
                         type="button"
                         class="btn"
                         on:click={() => (showModal = false)}>Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        disabled={
+                            editingPosition ? !canUpdateHere : !canCreateHere
+                        }>
                         {editingPosition ? 'Update' : 'Create'}
                     </button>
                 </div>

@@ -181,8 +181,8 @@ INSERT INTO navigation_items (name, path, icon, parent_id, display_order) VALUES
 ('Employee', '/admin/hr/employee', 'UserCheck', (SELECT id FROM navigation_items WHERE path = '/admin/hr'), 1),
 ('Intern', '/admin/hr/intern', 'SquareUser', (SELECT id FROM navigation_items WHERE path = '/admin/hr'), 2),
 ('Leave', '/admin/hr/leave', 'CalendarMinus', (SELECT id FROM navigation_items WHERE path = '/admin/hr'), 3),
-('Attendance', '/admin/hr/attendance', 'Clock', (SELECT id FROM navigation_items WHERE path = '/admin/hr'), 4);
-
+('Attendance', '/admin/hr/attendance', 'Clock', (SELECT id FROM navigation_items WHERE path = '/admin/hr'), 4),
+('Register Face','/admin/hr/attendance/register-face','Clock',(SELECT id FROM navigation_items where path='/admin/hr'),5);
 -- Report sub-items
 INSERT INTO navigation_items (name, path, icon, parent_id, display_order) VALUES
 ('Income', '/admin/report/income', 'ChartColumnIncreasing', (SELECT id FROM navigation_items WHERE path = '/admin/report'), 1),
