@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { createEventDispatcher } from 'svelte';
     import {
         Home,
         ChevronsLeft,
@@ -8,6 +9,9 @@
     } from 'lucide-svelte';
 
     export let selectedDate = new Date().toISOString().slice(0, 10);
+    export let eventDates: string[] = [];
+
+    const dispatch = createEventDispatcher<{ monthChange: { year: number; month: number } }>();
 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const current = new Date(selectedDate);
@@ -40,6 +44,7 @@
         } else {
             currentMonth -= 1;
         }
+        dispatch('monthChange', { year: currentYear, month: currentMonth });
     }
     function nextMonth() {
         if (currentMonth === 11) {
@@ -48,19 +53,33 @@
         } else {
             currentMonth += 1;
         }
+        dispatch('monthChange', { year: currentYear, month: currentMonth });
     }
     function prevYear() {
         currentYear -= 1;
+        dispatch('monthChange', { year: currentYear, month: currentMonth });
     }
     function nextYear() {
         currentYear += 1;
+        dispatch('monthChange', { year: currentYear, month: currentMonth });
     }
     function goToToday() {
         const today = new Date();
         currentMonth = today.getMonth();
         currentYear = today.getFullYear();
         selectedDate = today.toISOString().slice(0, 10);
+        dispatch('monthChange', { year: currentYear, month: currentMonth });
     }
+
+    $: {
+        const date = new Date(selectedDate);
+        if (date.getMonth() !== currentMonth || date.getFullYear() !== currentYear) {
+            currentMonth = date.getMonth();
+            currentYear = date.getFullYear();
+        }
+    }
+
+    $: eventDateSet = new Set(eventDates);
 </script>
 
 <h2 class="font-semibold mb-2">Calendar</h2>
@@ -105,9 +124,10 @@
         .fill(0)
         .map((_, i) => i + 1) as day (day)}
         {#key day}
+            {@const dayKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`}
             <button
-                class={`border border-base-300 p-2 rounded text-sm ${
-                    selectedDate.endsWith('-' + String(day).padStart(2, '0'))
+                class={`relative border border-base-300 p-2 rounded text-sm ${
+                    selectedDate === dayKey
                         ? 'bg-primary text-primary-content'
                         : ''
                 } ${
@@ -121,6 +141,9 @@
                 }`}
                 on:click={() => selectDay(day)}>
                 {day}
+                {#if eventDateSet.has(dayKey)}
+                    <span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                {/if}
             </button>
         {/key}
     {/each}

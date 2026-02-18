@@ -89,15 +89,16 @@
 
     async function handleSubmit() {
         try {
-            const payload = {
-                ...formData,
-                department_id: formData.department_id || undefined,
-            };
-
-            if (!payload.department_id) {
+            if (!formData.department_id) {
                 alert('Please select a department for this position.');
                 return;
             }
+
+            const payload = {
+                name: formData.name,
+                description: formData.description,
+                department_id: formData.department_id,
+            };
             if (editingPosition) {
                 await positionService.update(editingPosition.id, payload);
             } else {
