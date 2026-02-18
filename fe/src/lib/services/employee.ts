@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 import type {
     Employee,
     CreateEmployeeRequest,
@@ -7,20 +7,8 @@ import type {
     ListEmployeesQuery
 } from '$lib/types/employee';
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export async function createEmployee(data: CreateEmployeeRequest): Promise<Employee> {
-    const res = await fetch(`${PUBLIC_API_URL}/employees`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data)
-    });
+    const res = await api.post('/employees', data);
 
     if (!res.ok) {
         throw new Error('Failed to create employee');
@@ -30,9 +18,7 @@ export async function createEmployee(data: CreateEmployeeRequest): Promise<Emplo
 }
 
 export async function getEmployee(id: string): Promise<Employee> {
-    const res = await fetch(`${PUBLIC_API_URL}/employees/${id}`, {
-        headers: getAuthHeaders()
-    });
+    const res = await api.get(`/employees/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch employee');
@@ -50,9 +36,8 @@ export async function listEmployees(query?: ListEmployeesQuery): Promise<ListEmp
     if (query?.department) params.append('department', query.department);
     if (query?.status) params.append('status', query.status);
 
-    const res = await fetch(`${PUBLIC_API_URL}/employees?${params}`, {
-        headers: getAuthHeaders()
-    });
+    const queryString = params.toString();
+    const res = await api.get(`/employees${queryString ? `?${queryString}` : ''}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch employees');
@@ -62,11 +47,7 @@ export async function listEmployees(query?: ListEmployeesQuery): Promise<ListEmp
 }
 
 export async function updateEmployee(id: string, data: UpdateEmployeeRequest): Promise<Employee> {
-    const res = await fetch(`${PUBLIC_API_URL}/employees/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data)
-    });
+    const res = await api.put(`/employees/${id}`, data);
 
     if (!res.ok) {
         throw new Error('Failed to update employee');
@@ -76,10 +57,7 @@ export async function updateEmployee(id: string, data: UpdateEmployeeRequest): P
 }
 
 export async function deleteEmployee(id: string): Promise<void> {
-    const res = await fetch(`${PUBLIC_API_URL}/employees/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-    });
+    const res = await api.delete(`/employees/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to delete employee');
@@ -87,10 +65,8 @@ export async function deleteEmployee(id: string): Promise<void> {
 }
 
 export async function updateFaceDescriptor(id: string, descriptor: Float32Array): Promise<void> {
-    const res = await fetch(`${PUBLIC_API_URL}/employees/${id}/face-descriptor`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ descriptor: JSON.stringify(Array.from(descriptor)) })
+    const res = await api.post(`/employees/${id}/face-descriptor`, {
+        descriptor: JSON.stringify(Array.from(descriptor))
     });
 
     if (!res.ok) {
@@ -99,9 +75,7 @@ export async function updateFaceDescriptor(id: string, descriptor: Float32Array)
 }
 
 export async function getAllFaceDescriptors(): Promise<[string, string][]> {
-    const res = await fetch(`${PUBLIC_API_URL}/employees/config/descriptors`, {
-        headers: getAuthHeaders()
-    });
+    const res = await api.get('/employees/config/descriptors');
 
     if (!res.ok) {
         throw new Error('Failed to fetch face descriptors');

@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 
 export interface NavigationItem {
     id: string;
@@ -43,19 +43,9 @@ export interface UpdateNavigationItemDto {
     is_active?: boolean;
 }
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export const navigationService = {
     async getUserNavigation(): Promise<UserNavigationItem[]> {
-        const response = await fetch(`${PUBLIC_API_URL}/navigation/user`, {
-            headers: getAuthHeaders()
-        });
+        const response = await api.get('/navigation/user');
         if (!response.ok) throw new Error('Failed to fetch user navigation');
         return await response.json();
     },
@@ -65,46 +55,32 @@ export const navigationService = {
         if (isActive !== undefined) {
             params.append('is_active', String(isActive));
         }
-        const response = await fetch(`${PUBLIC_API_URL}/navigation?${params.toString()}`, {
-            headers: getAuthHeaders()
-        });
+        const query = params.toString();
+        const response = await api.get(`/navigation${query ? `?${query}` : ''}`);
         if (!response.ok) throw new Error('Failed to fetch navigation');
         return await response.json();
     },
 
     async getById(id: string): Promise<NavigationItem> {
-        const response = await fetch(`${PUBLIC_API_URL}/navigation/${id}`, {
-            headers: getAuthHeaders()
-        });
+        const response = await api.get(`/navigation/${id}`);
         if (!response.ok) throw new Error('Failed to fetch navigation item');
         return await response.json();
     },
 
     async create(data: CreateNavigationItemDto): Promise<NavigationItem> {
-        const response = await fetch(`${PUBLIC_API_URL}/navigation`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        });
+        const response = await api.post('/navigation', data);
         if (!response.ok) throw new Error('Failed to create navigation item');
         return await response.json();
     },
 
     async update(id: string, data: UpdateNavigationItemDto): Promise<NavigationItem> {
-        const response = await fetch(`${PUBLIC_API_URL}/navigation/${id}`, {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        });
+        const response = await api.put(`/navigation/${id}`, data);
         if (!response.ok) throw new Error('Failed to update navigation item');
         return await response.json();
     },
 
     async delete(id: string): Promise<void> {
-        const response = await fetch(`${PUBLIC_API_URL}/navigation/${id}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
-        });
+        const response = await api.delete(`/navigation/${id}`);
         if (!response.ok) throw new Error('Failed to delete navigation item');
     }
 };

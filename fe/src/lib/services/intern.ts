@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 import type {
     Intern,
     CreateInternRequest,
@@ -7,20 +7,8 @@ import type {
     ListInternsQuery
 } from '$lib/types/intern';
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export async function createIntern(data: CreateInternRequest): Promise<Intern> {
-    const res = await fetch(`${PUBLIC_API_URL}/interns`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data)
-    });
+    const res = await api.post('/interns', data);
 
     if (!res.ok) {
         throw new Error('Failed to create intern');
@@ -30,9 +18,7 @@ export async function createIntern(data: CreateInternRequest): Promise<Intern> {
 }
 
 export async function getIntern(id: string): Promise<Intern> {
-    const res = await fetch(`${PUBLIC_API_URL}/interns/${id}`, {
-        headers: getAuthHeaders()
-    });
+    const res = await api.get(`/interns/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch intern');
@@ -50,9 +36,8 @@ export async function listInterns(query?: ListInternsQuery): Promise<ListInterns
     if (query?.department) params.append('department', query.department);
     if (query?.status) params.append('status', query.status);
 
-    const res = await fetch(`${PUBLIC_API_URL}/interns?${params}`, {
-        headers: getAuthHeaders()
-    });
+    const queryString = params.toString();
+    const res = await api.get(`/interns${queryString ? `?${queryString}` : ''}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch interns');
@@ -62,11 +47,7 @@ export async function listInterns(query?: ListInternsQuery): Promise<ListInterns
 }
 
 export async function updateIntern(id: string, data: UpdateInternRequest): Promise<Intern> {
-    const res = await fetch(`${PUBLIC_API_URL}/interns/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data)
-    });
+    const res = await api.put(`/interns/${id}`, data);
 
     if (!res.ok) {
         throw new Error('Failed to update intern');
@@ -76,10 +57,7 @@ export async function updateIntern(id: string, data: UpdateInternRequest): Promi
 }
 
 export async function deleteIntern(id: string): Promise<void> {
-    const res = await fetch(`${PUBLIC_API_URL}/interns/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-    });
+    const res = await api.delete(`/interns/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to delete intern');

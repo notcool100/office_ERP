@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 import type {
     AttendanceRecord,
     CheckInRequest,
@@ -8,20 +8,8 @@ import type {
     AttendanceSummary
 } from '$lib/types/attendance';
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export async function checkIn(data: CheckInRequest): Promise<AttendanceRecord> {
-    const res = await fetch(`${PUBLIC_API_URL}/attendance/check-in`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data)
-    });
+    const res = await api.post('/attendance/check-in', data);
 
     if (!res.ok) {
         throw new Error('Failed to check in');
@@ -31,11 +19,7 @@ export async function checkIn(data: CheckInRequest): Promise<AttendanceRecord> {
 }
 
 export async function checkOut(employeeId: string, data?: CheckOutRequest): Promise<AttendanceRecord> {
-    const res = await fetch(`${PUBLIC_API_URL}/attendance/check-out/${employeeId}`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data || {})
-    });
+    const res = await api.post(`/attendance/check-out/${employeeId}`, data ?? {});
 
     if (!res.ok) {
         throw new Error('Failed to check out');
@@ -54,9 +38,8 @@ export async function listAttendance(query?: ListAttendanceQuery): Promise<ListA
     if (query?.endDate) params.append('endDate', query.endDate);
     if (query?.status) params.append('status', query.status);
 
-    const res = await fetch(`${PUBLIC_API_URL}/attendance/records?${params}`, {
-        headers: getAuthHeaders()
-    });
+    const queryString = params.toString();
+    const res = await api.get(`/attendance/records${queryString ? `?${queryString}` : ''}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch attendance records');
@@ -70,11 +53,8 @@ export async function getAttendanceSummary(
     startDate: string,
     endDate: string
 ): Promise<AttendanceSummary> {
-    const res = await fetch(
-        `${PUBLIC_API_URL}/attendance/summary/${employeeId}/${startDate}/${endDate}`,
-        {
-            headers: getAuthHeaders()
-        }
+    const res = await api.get(
+        `/attendance/summary/${employeeId}/${startDate}/${endDate}`
     );
 
     if (!res.ok) {

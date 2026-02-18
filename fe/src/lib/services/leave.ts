@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 import type {
     LeaveType,
     LeaveRequest,
@@ -9,20 +9,8 @@ import type {
     LeaveBalance
 } from '$lib/types/leave';
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export async function createLeaveRequest(data: CreateLeaveRequestRequest): Promise<LeaveRequest> {
-    const res = await fetch(`${PUBLIC_API_URL}/leave/requests`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data)
-    });
+    const res = await api.post('/leave/requests', data);
 
     if (!res.ok) {
         throw new Error('Failed to create leave request');
@@ -32,9 +20,7 @@ export async function createLeaveRequest(data: CreateLeaveRequestRequest): Promi
 }
 
 export async function getLeaveRequest(id: string): Promise<LeaveRequest> {
-    const res = await fetch(`${PUBLIC_API_URL}/leave/requests/${id}`, {
-        headers: getAuthHeaders()
-    });
+    const res = await api.get(`/leave/requests/${id}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch leave request');
@@ -55,9 +41,8 @@ export async function listLeaveRequests(
     if (query?.startDate) params.append('startDate', query.startDate);
     if (query?.endDate) params.append('endDate', query.endDate);
 
-    const res = await fetch(`${PUBLIC_API_URL}/leave/requests?${params}`, {
-        headers: getAuthHeaders()
-    });
+    const queryString = params.toString();
+    const res = await api.get(`/leave/requests${queryString ? `?${queryString}` : ''}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch leave requests');
@@ -70,11 +55,7 @@ export async function approveLeave(
     id: string,
     data?: ApproveRejectLeaveRequest
 ): Promise<LeaveRequest> {
-    const res = await fetch(`${PUBLIC_API_URL}/leave/requests/${id}/approve`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data || {})
-    });
+    const res = await api.put(`/leave/requests/${id}/approve`, data ?? {});
 
     if (!res.ok) {
         throw new Error('Failed to approve leave');
@@ -87,11 +68,7 @@ export async function rejectLeave(
     id: string,
     data?: ApproveRejectLeaveRequest
 ): Promise<LeaveRequest> {
-    const res = await fetch(`${PUBLIC_API_URL}/leave/requests/${id}/reject`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(data || {})
-    });
+    const res = await api.put(`/leave/requests/${id}/reject`, data ?? {});
 
     if (!res.ok) {
         throw new Error('Failed to reject leave');
@@ -101,9 +78,7 @@ export async function rejectLeave(
 }
 
 export async function getLeaveTypes(): Promise<LeaveType[]> {
-    const res = await fetch(`${PUBLIC_API_URL}/leave/types`, {
-        headers: getAuthHeaders()
-    });
+    const res = await api.get('/leave/types');
 
     if (!res.ok) {
         throw new Error('Failed to fetch leave types');
@@ -113,9 +88,7 @@ export async function getLeaveTypes(): Promise<LeaveType[]> {
 }
 
 export async function getLeaveBalance(employeeId: string): Promise<LeaveBalance[]> {
-    const res = await fetch(`${PUBLIC_API_URL}/leave/balance/${employeeId}`, {
-        headers: getAuthHeaders()
-    });
+    const res = await api.get(`/leave/balance/${employeeId}`);
 
     if (!res.ok) {
         throw new Error('Failed to fetch leave balance');

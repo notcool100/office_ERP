@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 
 export interface Position {
     id: string;
@@ -23,60 +23,38 @@ export interface UpdatePositionDto {
     is_active?: boolean;
 }
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export const positionService = {
     async getAll(isActive?: boolean): Promise<Position[]> {
         const params = new URLSearchParams();
         if (isActive !== undefined) {
             params.append('is_active', String(isActive));
         }
-        const response = await fetch(`${PUBLIC_API_URL}/positions?${params.toString()}`, {
-            headers: getAuthHeaders()
-        });
+        const query = params.toString();
+        const response = await api.get(`/positions${query ? `?${query}` : ''}`);
         if (!response.ok) throw new Error('Failed to fetch positions');
         return await response.json();
     },
 
     async getById(id: string): Promise<Position> {
-        const response = await fetch(`${PUBLIC_API_URL}/positions/${id}`, {
-            headers: getAuthHeaders()
-        });
+        const response = await api.get(`/positions/${id}`);
         if (!response.ok) throw new Error('Failed to fetch position');
         return await response.json();
     },
 
     async create(data: CreatePositionDto): Promise<Position> {
-        const response = await fetch(`${PUBLIC_API_URL}/positions`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        });
+        const response = await api.post('/positions', data);
         if (!response.ok) throw new Error('Failed to create position');
         return await response.json();
     },
 
     async update(id: string, data: UpdatePositionDto): Promise<Position> {
-        const response = await fetch(`${PUBLIC_API_URL}/positions/${id}`, {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        });
+        const response = await api.put(`/positions/${id}`, data);
         if (!response.ok) throw new Error('Failed to update position');
         return await response.json();
     },
 
     async delete(id: string): Promise<void> {
-        const response = await fetch(`${PUBLIC_API_URL}/positions/${id}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
-        });
+        const response = await api.delete(`/positions/${id}`);
         if (!response.ok) throw new Error('Failed to delete position');
     }
 };

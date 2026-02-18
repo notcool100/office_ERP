@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { api } from './api';
 
 export interface Department {
     id: string;
@@ -20,60 +20,38 @@ export interface UpdateDepartmentDto {
     is_active?: boolean;
 }
 
-const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-    };
-};
-
 export const departmentService = {
     async getAll(isActive?: boolean): Promise<Department[]> {
         const params = new URLSearchParams();
         if (isActive !== undefined) {
             params.append('is_active', String(isActive));
         }
-        const response = await fetch(`${PUBLIC_API_URL}/departments?${params.toString()}`, {
-            headers: getAuthHeaders()
-        });
+        const query = params.toString();
+        const response = await api.get(`/departments${query ? `?${query}` : ''}`);
         if (!response.ok) throw new Error('Failed to fetch departments');
         return await response.json();
     },
 
     async getById(id: string): Promise<Department> {
-        const response = await fetch(`${PUBLIC_API_URL}/departments/${id}`, {
-            headers: getAuthHeaders()
-        });
+        const response = await api.get(`/departments/${id}`);
         if (!response.ok) throw new Error('Failed to fetch department');
         return await response.json();
     },
 
     async create(data: CreateDepartmentDto): Promise<Department> {
-        const response = await fetch(`${PUBLIC_API_URL}/departments`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        });
+        const response = await api.post('/departments', data);
         if (!response.ok) throw new Error('Failed to create department');
         return await response.json();
     },
 
     async update(id: string, data: UpdateDepartmentDto): Promise<Department> {
-        const response = await fetch(`${PUBLIC_API_URL}/departments/${id}`, {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify(data)
-        });
+        const response = await api.put(`/departments/${id}`, data);
         if (!response.ok) throw new Error('Failed to update department');
         return await response.json();
     },
 
     async delete(id: string): Promise<void> {
-        const response = await fetch(`${PUBLIC_API_URL}/departments/${id}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
-        });
+        const response = await api.delete(`/departments/${id}`);
         if (!response.ok) throw new Error('Failed to delete department');
     }
 };

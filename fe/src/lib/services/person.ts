@@ -1,9 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
-
-const getAuthHeaders = (): Record<string, string> => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
+import { api } from './api';
 
 export interface Person {
     id: string;
@@ -44,57 +39,36 @@ export const personService = {
         if (query.page) params.append('page', query.page.toString());
         if (query.pageSize) params.append('page_size', query.pageSize.toString());
         if (query.search) params.append('search', query.search);
-
-        const response = await fetch(`${PUBLIC_API_URL}/persons?${params.toString()}`, {
-            headers: getAuthHeaders()
-        });
+        const queryString = params.toString();
+        const response = await api.get(`/persons${queryString ? `?${queryString}` : ''}`);
 
         if (!response.ok) throw new Error('Failed to fetch persons');
         return response.json();
     },
 
     async getById(id: string): Promise<Person> {
-        const response = await fetch(`${PUBLIC_API_URL}/persons/${id}`, {
-            headers: getAuthHeaders()
-        });
+        const response = await api.get(`/persons/${id}`);
 
         if (!response.ok) throw new Error('Failed to fetch person');
         return response.json();
     },
 
     async create(data: CreatePersonRequest): Promise<Person> {
-        const response = await fetch(`${PUBLIC_API_URL}/persons`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
-            },
-            body: JSON.stringify(data)
-        });
+        const response = await api.post('/persons', data);
 
         if (!response.ok) throw new Error('Failed to create person');
         return response.json();
     },
 
     async update(id: string, data: UpdatePersonRequest): Promise<Person> {
-        const response = await fetch(`${PUBLIC_API_URL}/persons/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
-            },
-            body: JSON.stringify(data)
-        });
+        const response = await api.put(`/persons/${id}`, data);
 
         if (!response.ok) throw new Error('Failed to update person');
         return response.json();
     },
 
     async delete(id: string): Promise<void> {
-        const response = await fetch(`${PUBLIC_API_URL}/persons/${id}`, {
-            method: 'DELETE',
-            headers: getAuthHeaders()
-        });
+        const response = await api.delete(`/persons/${id}`);
 
         if (!response.ok) throw new Error('Failed to delete person');
     }
