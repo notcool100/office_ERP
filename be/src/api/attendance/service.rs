@@ -7,13 +7,16 @@ use crate::{
     models::attendance::AttendanceWithEmployee,
 };
 use anyhow::{Result, anyhow};
-use chrono::{Local, NaiveDate};
+use chrono::{FixedOffset, NaiveDate, Utc};
 use sqlx::types::BigDecimal;
 use std::str::FromStr;
 use uuid::Uuid;
 
 pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse> {
-    let today = Local::now().date_naive();
+    let now_utc = Utc::now();
+    let today = now_utc
+        .with_timezone(&nepal_offset())
+        .date_naive();
 
     // Lookup employee UUID from string code
     let employee_uuid =
@@ -72,7 +75,7 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
             .map(|l| BigDecimal::from_str(&l.to_string()).ok())
             .flatten(),
     )
-    .bind(Local::now().naive_local())
+    .bind(now_utc.naive_utc())
     .fetch_one(db)
     .await?;
 
@@ -84,7 +87,10 @@ pub async fn check_out(
     employee_id: String,
     req: CheckOutRequest,
 ) -> Result<AttendanceResponse> {
-    let today = Local::now().date_naive();
+    let now_utc = Utc::now();
+    let today = now_utc
+        .with_timezone(&nepal_offset())
+        .date_naive();
 
     // Lookup employee UUID from string code
     let employee_uuid =
@@ -97,9 +103,9 @@ pub async fn check_out(
     let attendance = sqlx::query_as::<_, AttendanceWithEmployee>(
         r#"
         UPDATE attendance_records ar
-        SET check_out = NOW(),
-            total_hours = EXTRACT(EPOCH FROM (NOW() - ar.check_in)) / 3600,
-            notes = COALESCE($3, ar.notes),
+        SET check_out = $3,
+            total_hours = EXTRACT(EPOCH FROM ($3 - ar.check_in)) / 3600,
+            notes = COALESCE($4, ar.notes),
             updated_at = NOW()
         FROM employees e, persons p
         WHERE ar.employee_id = $1 
@@ -111,10 +117,11 @@ pub async fn check_out(
                   CONCAT(p.first_name, ' ', p.last_name) as employee_name,
                   ar.date, ar.check_in, ar.check_out, ar.total_hours,
                   ar.status, ar.notes, ar.created_at, ar.updated_at
-        "#,
+    "#,
     )
     .bind(employee_uuid)
     .bind(today)
+    .bind(now_utc.naive_utc())
     .bind(&req.notes)
     .fetch_optional(db)
     .await?
@@ -287,4 +294,10 @@ fn map_attendance_to_response(att: AttendanceWithEmployee) -> AttendanceResponse
         check_in_lat: att.check_in_lat.and_then(|h| h.to_string().parse().ok()),
         check_in_long: att.check_in_long.and_then(|h| h.to_string().parse().ok()),
     }
+}
+
+fn nepal_offset() -> FixedOffset {
+    // Nepal Standard Time (UTC+05:45)
+    FixedOffset::east_opt(5 * 3600 + 45 * 60)
+        .expect("Nepal UTC offset should be valid")
 }
