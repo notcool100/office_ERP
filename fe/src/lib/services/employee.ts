@@ -27,6 +27,16 @@ export async function getEmployee(id: string): Promise<Employee> {
     return await res.json();
 }
 
+export async function getMyEmployee(): Promise<Employee> {
+    const res = await api.get('/employees/me');
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch current employee');
+    }
+
+    return await res.json();
+}
+
 export async function listEmployees(query?: ListEmployeesQuery): Promise<ListEmployeesResponse> {
     const params = new URLSearchParams();
 

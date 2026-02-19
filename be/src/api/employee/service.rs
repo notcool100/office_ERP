@@ -96,6 +96,32 @@ pub async fn get_employee(db: &Db, id: Uuid) -> Result<EmployeeResponse> {
     Ok(map_employee_to_response(employee))
 }
 
+pub async fn get_employee_by_person_id(
+    db: &Db,
+    person_id: Uuid,
+) -> Result<EmployeeResponse> {
+    let employee = sqlx::query_as::<_, EmployeeWithPerson>(
+        r#"
+        SELECT e.id, e.employee_id, e.person_id, 
+               p.first_name, p.middle_name, p.last_name,
+               pc.email, pc.phone,
+               e.department_id, e.position_id, e.hire_date,
+               e.employment_type, e.salary, e.manager_id,
+               e.status, e.created_at, e.updated_at
+        FROM employees e
+        JOIN persons p ON p.id = e.person_id
+        LEFT JOIN person_contacts pc ON pc.person_id = p.id
+        WHERE e.person_id = $1
+        "#,
+    )
+    .bind(person_id)
+    .fetch_optional(db)
+    .await?
+    .ok_or_else(|| anyhow!("Employee not found"))?;
+
+    Ok(map_employee_to_response(employee))
+}
+
 pub async fn list_employees(db: &Db, query: ListEmployeesQuery) -> Result<ListEmployeesResponse> {
     let page = query.page.unwrap_or(1).max(1);
     let page_size = query.page_size.unwrap_or(10).min(100);

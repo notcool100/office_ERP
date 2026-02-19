@@ -7,6 +7,7 @@ use crate::{
         service,
     },
     db::Db,
+    models::user::User,
 };
 use axum::{
     Json,
@@ -38,6 +39,16 @@ pub async fn get_employee_handler(
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
     let employee = service::get_employee(&db, id)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+    Ok((StatusCode::OK, Json(json!(employee))))
+}
+
+pub async fn get_my_employee_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    let employee = service::get_employee_by_person_id(&db, user.person_id)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     Ok((StatusCode::OK, Json(json!(employee))))

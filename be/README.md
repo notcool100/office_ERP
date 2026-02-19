@@ -64,3 +64,4 @@ To populate the database with initial data (Admin user, Roles, Permissions, etc.
 - Positions can be linked to departments via `department_id` for cleaner role grouping.
 - The `/projects` endpoints are also protected by RBAC (`/admin/projects`) and additionally enforce project membership for board and card actions.
 - The `/calendar` endpoints support personal, department, and company events, with personal events restricted to the creator and shared events guarded by calendar permissions.
+- The `/employees/me` endpoint returns the current user's employee record for attendance workflows and is protected by `/admin/hr/attendance` permissions.

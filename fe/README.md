@@ -40,3 +40,4 @@ Refer to the repository [README](../README.md) for more information about the pr
 - Sidebar navigation scrolls independently from the main content for easier access.
 - `PageSection` component provides a consistent layout for page sections and is used on the profile page.
 - Permissions management is available at `/admin/settings/permissions` for assigning access by department or position.
+- The attendance manual screen at `/admin/hr/attendance` uses an employee-name dropdown for HR/admin users, while other users are locked to their own employee record.
