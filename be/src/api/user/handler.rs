@@ -1,6 +1,6 @@
 use crate::{
     api::user::{dto::CreateUserRequest, service},
-    db::Db,
+    db::{Db, VmailDb},
     models::user::User,
 };
 use axum::{Extension, Json, http::StatusCode};
@@ -16,9 +16,10 @@ pub async fn list_users_handler(
 
 pub async fn create_user_handler(
     Extension(db): Extension<Db>,
+    Extension(vmail_db): Extension<VmailDb>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<User>), StatusCode> {
-    let user = service::create_user(&db, payload).await.map_err(|e| {
+    let user = service::create_user(&db, &vmail_db, payload).await.map_err(|e| {
         eprintln!("Error creating user: {}", e);
         StatusCode::BAD_REQUEST
     })?;

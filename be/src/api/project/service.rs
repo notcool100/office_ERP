@@ -45,7 +45,7 @@ pub struct ProjectMemberInfo {
     pub created_at: chrono::NaiveDateTime,
 }
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Clone)]
 pub struct CardWithAssignee {
     pub id: Uuid,
     pub project_id: Uuid,
@@ -436,6 +436,25 @@ pub async fn create_card(
     .fetch_one(pool)
     .await?;
 
+    // Send assignment email if assignee is set
+    if let Some(assignee_id) = card.assignee_id {
+        let pool_clone = pool.clone();
+        let card_clone = card.clone();
+        tokio::spawn(async move {
+            if let Ok(user) = crate::api::user::service::get_by_id(&pool_clone, assignee_id).await {
+                // Get project name
+                if let Ok(project) = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+                    .bind(card_clone.project_id)
+                    .fetch_one(&pool_clone)
+                    .await
+                {
+                    let mailer = crate::api::user::mailer::Mailer::new();
+                    let _ = mailer.send_task_assignment_email(&user.email, &user.user_name, &card_clone.title, &project, &card_clone.priority);
+                }
+            }
+        });
+    }
+
     Ok(card)
 }
 
@@ -488,6 +507,25 @@ pub async fn update_card(
     .fetch_optional(pool)
     .await?
     .ok_or(ProjectError::NotFound)?;
+
+    // Send assignment email if assignee is set/changed
+    if let Some(assignee_id) = card.assignee_id {
+        let pool_clone = pool.clone();
+        let card_clone = card.clone();
+        tokio::spawn(async move {
+            if let Ok(user) = crate::api::user::service::get_by_id(&pool_clone, assignee_id).await {
+                // Get project name
+                if let Ok(project) = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+                    .bind(card_clone.project_id)
+                    .fetch_one(&pool_clone)
+                    .await
+                {
+                    let mailer = crate::api::user::mailer::Mailer::new();
+                    let _ = mailer.send_task_assignment_email(&user.email, &user.user_name, &card_clone.title, &project, &card_clone.priority);
+                }
+            }
+        });
+    }
 
     Ok(card)
 }

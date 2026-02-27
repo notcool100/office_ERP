@@ -1,5 +1,5 @@
 use crate::{
-    api::calendar::dto::{CreateCalendarEventDto, ListCalendarEventsQuery, UpdateCalendarEventDto},
+    api::{calendar::dto::{CreateCalendarEventDto, ListCalendarEventsQuery, UpdateCalendarEventDto}, user::mailer::Mailer},
     models::{calendar_event::CalendarEvent, user::User},
 };
 use chrono::{NaiveDateTime, Utc};
@@ -137,6 +137,52 @@ pub async fn create_event(
     .bind(Utc::now().naive_utc())
     .fetch_one(pool)
     .await?;
+
+    // Send notifications
+    let event_title = event.title.clone();
+    let event_desc = event.description.clone().unwrap_or_default();
+    let event_scope = event.scope.clone();
+    let event_dept_id = event.department_id;
+    let user_email = user.email.clone();
+    let pool_clone = pool.clone();
+
+    tokio::spawn(async move {
+        let mailer = Mailer::new();
+        match event_scope.as_str() {
+            "personal" => {
+                let subject = format!("Event Reminder: {}", event_title);
+                let _ = mailer.send_email(&user_email, &subject, &event_desc);
+            }
+            "company" => {
+                let emails = sqlx::query_scalar::<_, String>("SELECT email FROM users WHERE email IS NOT NULL")
+                    .fetch_all(&pool_clone)
+                    .await
+                    .unwrap_or_default();
+                let _ = mailer.send_broadcast_email(emails, &format!("Company Notice: {}", event_title), &event_title, &event_desc);
+            }
+            "department" => {
+                if let Some(dept_id) = event_dept_id {
+                    let emails = sqlx::query_scalar::<_, String>(
+                        r#"
+                        SELECT u.email FROM users u 
+                        JOIN employees e ON u.person_id = e.person_id 
+                        WHERE e.department_id = $1 AND u.email IS NOT NULL
+                        UNION
+                        SELECT u.email FROM users u 
+                        JOIN interns i ON u.person_id = i.person_id 
+                        WHERE i.department_id = $1 AND u.email IS NOT NULL
+                        "#
+                    )
+                    .bind(dept_id)
+                    .fetch_all(&pool_clone)
+                    .await
+                    .unwrap_or_default();
+                    let _ = mailer.send_broadcast_email(emails, &format!("Department Notice: {}", event_title), &event_title, &event_desc);
+                }
+            }
+            _ => {}
+        }
+    });
 
     Ok(event)
 }

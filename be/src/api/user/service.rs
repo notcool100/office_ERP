@@ -1,6 +1,6 @@
 use crate::{
-    api::{auth::password::hash_password, user::dto::CreateUserRequest},
-    db::Db,
+    api::{auth::password::hash_password, user::{dto::CreateUserRequest, vmail::VmailService}},
+    db::{Db, VmailDb},
     models::user::User,
 };
 use anyhow::{Result, anyhow};
@@ -22,7 +22,7 @@ pub async fn list_users(db: &Db) -> Result<Vec<User>, axum::http::StatusCode> {
     Ok(users)
 }
 
-pub async fn create_user(db: &Db, req: CreateUserRequest) -> Result<User> {
+pub async fn create_user(db: &Db, vmail_db: &VmailDb, req: CreateUserRequest) -> Result<User> {
     // Check if user already exists for this person
     let exists =
         sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE person_id = $1)")
@@ -67,6 +67,21 @@ pub async fn create_user(db: &Db, req: CreateUserRequest) -> Result<User> {
     .fetch_one(db)
     .await
     .map_err(|e| anyhow!("Failed to create user: {}", e))?;
+
+    // Create mailbox if email is in @ubucknepal.com domain
+    if user.email.ends_with("@ubucknepal.com") {
+        if let Err(e) = VmailService::create_mailbox(vmail_db, &user.email, &req.password, &user.user_name).await {
+            tracing::error!("Failed to create mailbox for {}: {}", user.email, e);
+        } else {
+            tracing::info!("Successfully created mailbox for {}", user.email);
+        }
+    }
+
+    // Send welcome email
+    let mailer = crate::api::user::mailer::Mailer::new();
+    if let Err(e) = mailer.send_welcome_email(&user.email, &user.user_name, &req.password) {
+        tracing::error!("Failed to send welcome email to {}: {}", user.email, e);
+    }
 
     Ok(user)
 }

@@ -17,6 +17,7 @@ serde_json = "1.0.140"
 sqlx = { version = "0.8.6", features = [
   "macros",
   "postgres",
+  "mysql",
   "runtime-tokio-rustls",
   "uuid",
   "chrono",
@@ -35,3 +36,6 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter", "fmt"] }
 uuid = { version = "1.17.0", features = ["serde", "v4"] }
 clap = { version = "4.5.4", features = ["derive"] }
 rand = "0.8"
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "builder", "hostname", "smtp-transport"] }
+sha2 = "0.10"
+base64 = "0.22"

@@ -6,7 +6,7 @@ pub mod middlewares;
 pub mod models;
 pub mod routes;
 
-pub use db::init_pool;
+pub use db::{init_pool, init_vmail_pool};
 pub use routes::build_routes;
 
 pub const ACCESS_TOKEN_TTL_MINUTES: i64 = 15;

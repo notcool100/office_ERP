@@ -1,4 +1,4 @@
-use be::{build_routes, init_pool, middleware};
+use be::{build_routes, init_pool, init_vmail_pool, middleware};
 
 use axum::http::{HeaderValue, header::CACHE_CONTROL};
 use dotenvy::dotenv;
@@ -22,6 +22,7 @@ async fn main() {
     tracing::info!("Starting Axum server...");
 
     let db_pool = init_pool().await.expect("Failed to init DB pool");
+    let vmail_pool = init_vmail_pool().await.expect("Failed to init vmail pool");
 
     use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
     let cors = CorsLayer::new()
@@ -30,7 +31,7 @@ async fn main() {
         .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT]);
 
     let app = build_routes()
-        .layer(middleware::add_extensions(db_pool))
+        .layer(middleware::add_extensions(db_pool, vmail_pool))
         .layer(cors)
         .layer(SetResponseHeaderLayer::overriding(
             CACHE_CONTROL,
