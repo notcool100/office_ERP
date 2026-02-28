@@ -6,6 +6,7 @@ pub mod employee;
 pub mod home;
 pub mod intern;
 pub mod leave;
+pub mod messaging;
 pub mod navigation;
 pub mod permissions;
 pub mod person;

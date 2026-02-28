@@ -8,10 +8,11 @@ use crate::api::{
     navigation::routes::navigation_routes, permissions::routes::permissions_routes,
     person::routes::person_routes, position::routes::position_routes,
     project::routes::project_routes, user::routes::user_routes,
+    messaging::routes::messaging_routes,
 };
 use crate::middlewares::rbac;
 
-pub fn build_routes() -> Router {
+pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
     let protected_routes = Router::new()
         .nest("/employees", employee_routes())
         .nest(
@@ -52,12 +53,18 @@ pub fn build_routes() -> Router {
             "/users",
             user_routes().layer(rbac::require_permission("/admin/settings/user")),
         )
+        .nest("/messaging", messaging_routes(hub.clone()))
         .route_layer(axum::middleware::from_fn(
             crate::middlewares::auth::authenticate,
         ));
 
+    let ws_route = Router::new()
+        .route("/ws/messaging/{channel_id}", get(crate::ws::ws_handler))
+        .with_state(hub);
+
     Router::new()
         .route("/", get(health_check_handler))
         .nest("/auth", auth_routes())
+        .merge(ws_route)
         .merge(protected_routes)
 }

@@ -39,3 +39,4 @@ rand = "0.8"
 lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "builder", "hostname", "smtp-transport"] }
 sha2 = "0.10"
 base64 = "0.22"
+futures = "0.3"

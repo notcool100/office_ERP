@@ -7,6 +7,7 @@ pub mod department;
 pub mod employee;
 pub mod intern;
 pub mod leave;
+pub mod messaging;
 pub mod navigation_item;
 pub mod person;
 pub mod person_contact;

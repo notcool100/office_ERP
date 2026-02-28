@@ -5,6 +5,7 @@ pub mod middleware;
 pub mod middlewares;
 pub mod models;
 pub mod routes;
+pub mod ws;
 
 pub use db::{init_pool, init_vmail_pool};
 pub use routes::build_routes;

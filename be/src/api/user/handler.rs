@@ -16,13 +16,20 @@ pub async fn list_users_handler(
 
 pub async fn create_user_handler(
     Extension(db): Extension<Db>,
-    Extension(vmail_db): Extension<VmailDb>,
+    Extension(vmail_db): Extension<Option<VmailDb>>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<User>), StatusCode> {
-    let user = service::create_user(&db, &vmail_db, payload).await.map_err(|e| {
-        eprintln!("Error creating user: {}", e);
-        StatusCode::BAD_REQUEST
+    let vmail_db = vmail_db.ok_or_else(|| {
+        eprintln!("Vmail database not initialized (likely local development)");
+        StatusCode::SERVICE_UNAVAILABLE
     })?;
+
+    let user = service::create_user(&db, &vmail_db, payload)
+        .await
+        .map_err(|e| {
+            eprintln!("Error creating user: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
     Ok((StatusCode::CREATED, Json(user)))
 }
 
