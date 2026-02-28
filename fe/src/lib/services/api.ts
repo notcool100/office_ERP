@@ -16,7 +16,14 @@ async function customFetch(url: string, options: RequestOptions = {}): Promise<R
         };
     }
 
-    let response = await fetch(fullUrl, options);
+    let response: Response;
+    try {
+        response = await fetch(fullUrl, options);
+    } catch (error) {
+        // Network error - potentially server down
+        console.error('Fetch failed:', error);
+        throw error;
+    }
 
     // Handle 401 (Unauthorized) - Attempt Refresh
     if (response.status === 401) {
@@ -49,12 +56,15 @@ async function customFetch(url: string, options: RequestOptions = {}): Promise<R
                 };
                 response = await fetch(fullUrl, options);
             } else {
-                // Refresh failed
+                // Refresh failed (could be 401, 403, 502, etc.)
+                console.error('Token refresh response not OK', refreshRes.status);
                 logout();
+                return refreshRes; // Return the refresh error response
             }
         } catch (error) {
-            console.error('Token refresh failed', error);
+            console.error('Token refresh network failed', error);
             logout();
+            throw error;
         }
     }
 

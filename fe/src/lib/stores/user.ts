@@ -60,6 +60,7 @@ function createUserStore() {
                 const user = await authService.getProfile();
                 set({ user, isAuthenticated: true, loading: false });
             } catch (error) {
+                console.error('Session initialization failed:', error);
                 // Token might be invalid or expired and refresh failed
                 set({ user: null, isAuthenticated: false, loading: false });
                 authService.logout();
