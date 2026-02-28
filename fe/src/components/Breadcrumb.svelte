@@ -19,6 +19,6 @@
         class="ml-auto flex items-center space-x-4 text-xs text-base-content/70">
         <span>👤 Admin</span>
         <span>🕒 Last updated: 2 hours ago</span>
-        <span>📦 Workspace: Xenith</span>
+        <span>📦 Workspace: U-BUCK</span>
     </div>
 </div>

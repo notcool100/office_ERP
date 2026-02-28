@@ -23,6 +23,9 @@
         canRead,
         canUpdate,
     } from '$lib/stores/navigation';
+    import { userStore } from '$lib/stores/user';
+    import { listEmployees, getMyEmployee } from '$lib/services/employee';
+    import type { Employee } from '$lib/types/employee';
     import { onMount } from 'svelte';
 
     pageTitle.set({
@@ -57,14 +60,28 @@
         reason: '',
     };
 
+    let allEmployees: Employee[] = [];
+    let isHRorAdmin = false;
+    let currentEmployee: Employee | null = null;
+
+    let initialLoadComplete = false;
+
     async function loadLeaveRequests() {
+        if (!initialLoadComplete && currentEmployee === null) return;
+
         loading = true;
         try {
-            const response = await leaveService.listLeaveRequests({
+            const query: any = {
                 page,
                 pageSize,
                 status: statusFilter !== 'all' ? statusFilter : undefined,
-            });
+            };
+
+            if (!isHRorAdmin && currentEmployee) {
+                query.employeeId = currentEmployee.id;
+            }
+
+            const response = await leaveService.listLeaveRequests(query);
             leaveRequests = response.requests;
             total = response.total;
         } catch (err) {
@@ -94,7 +111,7 @@
 
     function openRequestModal() {
         formData = {
-            employeeId: '',
+            employeeId: isHRorAdmin ? '' : currentEmployee?.id || '',
             leaveTypeId: '',
             startDate: new Date().toISOString().split('T')[0],
             endDate: '',
@@ -145,7 +162,33 @@
         }
     }
 
-    onMount(() => {
+    async function loadInitialData() {
+        try {
+            currentEmployee = await getMyEmployee();
+
+            // Check if user is HR or Admin
+            isHRorAdmin =
+                $userStore.user?.isAdmin ||
+                currentEmployee.department === 'Human Resources' ||
+                currentEmployee.position === 'System Administrator' ||
+                currentEmployee.department === 'Administration';
+
+            if (isHRorAdmin) {
+                const response = await listEmployees({ pageSize: 1000 });
+                allEmployees = response.employees;
+            } else {
+                allEmployees = [currentEmployee];
+                formData.employeeId = currentEmployee.id;
+                selectedEmployeeId = currentEmployee.id;
+            }
+        } catch (err) {
+            console.error('Failed to load initial data:', err);
+        }
+    }
+
+    onMount(async () => {
+        await loadInitialData();
+        initialLoadComplete = true;
         loadLeaveRequests();
         loadLeaveTypes();
     });
@@ -171,11 +214,18 @@
                 <option value="rejected">Rejected</option>
             </select>
 
-            <input
-                type="text"
-                placeholder="Employee ID for balance"
+            <select
                 bind:value={selectedEmployeeId}
-                class="input input-bordered" />
+                class="select select-bordered"
+                disabled={!isHRorAdmin}>
+                <option value="">Select Employee</option>
+                {#each allEmployees as emp}
+                    <option value={emp.id}>
+                        {emp.firstName}
+                        {emp.lastName} ({emp.employeeId})
+                    </option>
+                {/each}
+            </select>
             <button
                 class="btn btn-secondary"
                 on:click={() => loadLeaveBalance(selectedEmployeeId)}
@@ -314,12 +364,20 @@
                     <label class="label" for="employeeId">
                         <span class="label-text">Employee ID</span>
                     </label>
-                    <input
+                    <select
                         id="employeeId"
-                        type="text"
-                        class="input input-bordered"
+                        class="select select-bordered"
                         bind:value={formData.employeeId}
-                        required />
+                        required
+                        disabled={!isHRorAdmin}>
+                        <option value="">Select Employee</option>
+                        {#each allEmployees as emp}
+                            <option value={emp.id}>
+                                {emp.firstName}
+                                {emp.lastName} ({emp.employeeId})
+                            </option>
+                        {/each}
+                    </select>
                 </div>
 
                 <div class="form-control">

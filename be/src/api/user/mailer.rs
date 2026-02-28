@@ -18,11 +18,31 @@ impl Mailer {
 
         let creds = Credentials::new(user, pass);
 
-        let transport = SmtpTransport::starttls_relay(&host)
-            .unwrap()
-            .port(port)
-            .credentials(creds)
-            .build();
+        // For local development and internal VPS communication, we might have self-signed certificates.
+        // We use Tls::Required but can disable certificate verification if needed, 
+        // or just use Tls::None if on localhost.
+        let transport = if host == "127.0.0.1" || host == "localhost" {
+            SmtpTransport::builder_dangerous(host)
+                .port(port)
+                .credentials(creds)
+                .tls(lettre::transport::smtp::client::Tls::None)
+                .build()
+        } else {
+            SmtpTransport::starttls_relay(&host)
+                .unwrap()
+                .port(port)
+                .credentials(creds)
+                // Relax certificate verification for this specific setup where mail.ubucknepal.com 
+                // certificate might have issues when accessed via STARTTLS from the same machine.
+                .tls(lettre::transport::smtp::client::Tls::Required(
+                    lettre::transport::smtp::client::TlsParameters::builder(host)
+                        .dangerous_accept_invalid_certs(true)
+                        .dangerous_accept_invalid_hostnames(true)
+                        .build()
+                        .unwrap()
+                ))
+                .build()
+        };
 
         Self { transport, from }
     }
@@ -35,8 +55,16 @@ impl Mailer {
             .header(lettre::message::header::ContentType::TEXT_HTML)
             .body(body.to_string())?;
 
-        self.transport.send(&email)?;
-        Ok(())
+        match self.transport.send(&email) {
+            Ok(_) => {
+                println!("[MAILER] Email successfully sent to {}", to);
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("[MAILER] Error sending email to {}: {:?}", to, e);
+                Err(e.into())
+            }
+        }
     }
 
     pub fn send_welcome_email(&self, to: &str, username: &str, temp_pass: &str) -> Result<()> {
@@ -119,9 +147,14 @@ impl Mailer {
             title, content
         );
 
-        for to in to_list {
-            let _ = self.send_email(&to, subject, &body);
+        println!("[MAILER] Starting broadcast to {} recipients", to_list.len());
+        for (i, to) in to_list.iter().enumerate() {
+            if let Err(e) = self.send_email(to, subject, &body) {
+                eprintln!("[MAILER] Broadcast failed for recipient {} ({}): {:?}", i+1, to, e);
+            }
         }
+        println!("[MAILER] Broadcast complete");
         Ok(())
     }
+
 }

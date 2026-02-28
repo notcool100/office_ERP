@@ -61,8 +61,8 @@ pub async fn list_events(
         FROM calendar_events
         WHERE (
             (scope = 'personal' AND created_by = $1)
-            OR ($3 = true AND scope = 'company')
-            OR ($3 = true AND scope = 'department' AND department_id = $2)
+            OR (scope = 'company')
+            OR (scope = 'department' AND (department_id = $2 OR $3 = true))
         )
         "#,
     );
@@ -147,6 +147,7 @@ pub async fn create_event(
     let pool_clone = pool.clone();
 
     tokio::spawn(async move {
+        println!("[CALENDAR] Starting automated notification for event: {} (Scope: {})", event_title, event_scope);
         let mailer = Mailer::new();
         match event_scope.as_str() {
             "personal" => {
@@ -154,14 +155,17 @@ pub async fn create_event(
                 let _ = mailer.send_email(&user_email, &subject, &event_desc);
             }
             "company" => {
+                println!("[CALENDAR] Fetching all user emails for company notice");
                 let emails = sqlx::query_scalar::<_, String>("SELECT email FROM users WHERE email IS NOT NULL")
                     .fetch_all(&pool_clone)
                     .await
                     .unwrap_or_default();
+                println!("[CALENDAR] Sending company notice to {} users", emails.len());
                 let _ = mailer.send_broadcast_email(emails, &format!("Company Notice: {}", event_title), &event_title, &event_desc);
             }
             "department" => {
                 if let Some(dept_id) = event_dept_id {
+                    println!("[CALENDAR] Fetching department emails for dept_id: {}", dept_id);
                     let emails = sqlx::query_scalar::<_, String>(
                         r#"
                         SELECT u.email FROM users u 
@@ -177,11 +181,15 @@ pub async fn create_event(
                     .fetch_all(&pool_clone)
                     .await
                     .unwrap_or_default();
+                    println!("[CALENDAR] Sending department notice to {} users", emails.len());
                     let _ = mailer.send_broadcast_email(emails, &format!("Department Notice: {}", event_title), &event_title, &event_desc);
                 }
             }
-            _ => {}
+            _ => {
+                println!("[CALENDAR] No notification needed for scope: {}", event_scope);
+            }
         }
+        println!("[CALENDAR] Notification task finished for event: {}", event_title);
     });
 
     Ok(event)

@@ -1,6 +1,6 @@
 # Contributor Guide
 
-This repository is a monorepo that contains both the backend and frontend of the Xenledger accounting demo application.
+This repository is a monorepo that contains both the backend and frontend of the U-BUCK accounting demo application.
 
 - **`be/`** – Rust service built with [axum](https://crates.io/crates/axum) and [tokio](https://crates.io/crates/tokio).
 - **`fe/`** – SvelteKit web interface managed with Node.

@@ -52,8 +52,7 @@
         errorMessage = '';
         try {
             const range = getMonthRange(dateStr);
-            const allEvents = await calendarService.list(range.start, range.end);
-            events = allEvents.filter((event) => event.scope === 'personal');
+            events = await calendarService.list(range.start, range.end);
         } catch (error) {
             console.error('Failed to load personal events:', error);
             errorMessage = 'Failed to load events';
@@ -83,7 +82,9 @@
         }
     }
 
-    function handleMonthChange(event: CustomEvent<{ year: number; month: number }>) {
+    function handleMonthChange(
+        event: CustomEvent<{ year: number; month: number }>,
+    ) {
         const { year, month } = event.detail;
         const date = new Date(year, month, 1);
         const dateStr = formatDateLocal(date);
@@ -108,8 +109,16 @@
         for (const event of events) {
             const start = new Date(event.start_at);
             const end = new Date(event.end_at);
-            const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-            const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            const cursor = new Date(
+                start.getFullYear(),
+                start.getMonth(),
+                start.getDate(),
+            );
+            const endDate = new Date(
+                end.getFullYear(),
+                end.getMonth(),
+                end.getDate(),
+            );
             while (cursor <= endDate) {
                 keys.add(formatDateLocal(cursor));
                 cursor.setDate(cursor.getDate() + 1);

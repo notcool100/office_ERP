@@ -24,8 +24,8 @@
 </script>
 
 <svelte:head>
-    <title>Login - XenLedger</title>
-    <meta name="description" content="Sign in to your XenLedger workspace" />
+    <title>Login - U-BUCK</title>
+    <meta name="description" content="Sign in to your U-BUCK workspace" />
 </svelte:head>
 
 <div
@@ -34,9 +34,7 @@
         class="w-full max-w-md border border-base-300 bg-base-100/80 shadow-xl rounded-lg p-6">
         <!-- Header -->
         <div class="mb-6 text-center">
-            <h1 class="text-2xl font-semibold tracking-wide">
-                XenLedger Login
-            </h1>
+            <h1 class="text-2xl font-semibold tracking-wide">U-BUCK Login</h1>
             <p class="text-sm text-base-content/60 mt-1">
                 Please enter your credentials to continue
             </p>
@@ -52,7 +50,7 @@
                     type="text"
                     bind:this={usernameInput}
                     bind:value={username}
-                    placeholder="admin@xenledger.dev"
+                    placeholder="admin@U-BUCK.dev"
                     autocomplete="username"
                     class="w-full input input-bordered bg-base-100 border-base-300 placeholder:text-base-content/40 text-sm" />
             </div>

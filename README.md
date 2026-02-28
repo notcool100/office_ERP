@@ -1,4 +1,4 @@
-# Xenledger Accounting Suite
+# U-BUCK Accounting Suite
 
 This repository contains the code for a small accounting demo. It is organised as a monorepo with separate folders for the backend API and the Svelte frontend.
 

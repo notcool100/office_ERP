@@ -94,7 +94,7 @@
 </script>
 
 <svelte:head>
-    <title>{$pageTitle.title} - XenLedger</title>
+    <title>{$pageTitle.title} - U-BUCK</title>
 </svelte:head>
 
 <div
