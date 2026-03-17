@@ -161,7 +161,7 @@ let selectedCards: Card[] = [];
         })
        }
             showCardModal = false;
-            cards = await projectService.listCards(projectId);
+            await loadProjectData();
         } catch (error) {
             console.error('Failed to create card:', error);
             errorMessage = 'Failed to create card';
