@@ -148,11 +148,22 @@ pub async fn create_event(
 
     tokio::spawn(async move {
         println!("[CALENDAR] Starting automated notification for event: {} (Scope: {})", event_title, event_scope);
-        let mailer = Mailer::new();
         match event_scope.as_str() {
             "personal" => {
-                let subject = format!("Event Reminder: {}", event_title);
-                let _ = mailer.send_email(&user_email, &subject, &event_desc);
+                let subject = format!("Event Reminder: {}", event_title.as_str());
+                let to = user_email.clone();
+                let body = event_desc.clone();
+                let send_result = tokio::task::spawn_blocking(move || {
+                    let mailer = Mailer::new();
+                    mailer.send_email(&to, &subject, &body)
+                })
+                .await;
+
+                match send_result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => println!("[CALENDAR] Personal email failed: {}", e),
+                    Err(e) => println!("[CALENDAR] Personal email task panicked: {}", e),
+                }
             }
             "company" => {
                 println!("[CALENDAR] Fetching all user emails for company notice");
@@ -161,7 +172,20 @@ pub async fn create_event(
                     .await
                     .unwrap_or_default();
                 println!("[CALENDAR] Sending company notice to {} users", emails.len());
-                let _ = mailer.send_broadcast_email(emails, &format!("Company Notice: {}", event_title), &event_title, &event_desc);
+                let subject = format!("Company Notice: {}", event_title.as_str());
+                let title = event_title.clone();
+                let content = event_desc.clone();
+                let send_result = tokio::task::spawn_blocking(move || {
+                    let mailer = Mailer::new();
+                    mailer.send_broadcast_email(emails, &subject, &title, &content)
+                })
+                .await;
+
+                match send_result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(e)) => println!("[CALENDAR] Company broadcast failed: {}", e),
+                    Err(e) => println!("[CALENDAR] Company broadcast task panicked: {}", e),
+                }
             }
             "department" => {
                 if let Some(dept_id) = event_dept_id {
@@ -182,7 +206,20 @@ pub async fn create_event(
                     .await
                     .unwrap_or_default();
                     println!("[CALENDAR] Sending department notice to {} users", emails.len());
-                    let _ = mailer.send_broadcast_email(emails, &format!("Department Notice: {}", event_title), &event_title, &event_desc);
+                    let subject = format!("Department Notice: {}", event_title.as_str());
+                    let title = event_title.clone();
+                    let content = event_desc.clone();
+                    let send_result = tokio::task::spawn_blocking(move || {
+                        let mailer = Mailer::new();
+                        mailer.send_broadcast_email(emails, &subject, &title, &content)
+                    })
+                    .await;
+
+                    match send_result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(e)) => println!("[CALENDAR] Department broadcast failed: {}", e),
+                        Err(e) => println!("[CALENDAR] Department broadcast task panicked: {}", e),
+                    }
                 }
             }
             _ => {

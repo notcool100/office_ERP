@@ -77,11 +77,24 @@ pub async fn create_user(db: &Db, vmail_db: &VmailDb, req: CreateUserRequest) ->
         }
     }
 
-    // Send welcome email
-    let mailer = crate::api::user::mailer::Mailer::new();
-    if let Err(e) = mailer.send_welcome_email(&user.email, &user.user_name, &req.password) {
-        tracing::error!("Failed to send welcome email to {}: {}", user.email, e);
-    }
+    // Send welcome email (offload blocking SMTP work)
+    let email = user.email.clone();
+    let user_name = user.user_name.clone();
+    let user_name_for_log = user_name.clone();
+    let temp_pass = req.password.clone();
+    tokio::spawn(async move {
+        let send_result = tokio::task::spawn_blocking(move || {
+            let mailer = crate::api::user::mailer::Mailer::new();
+            mailer.send_welcome_email(&email, &user_name, &temp_pass)
+        })
+        .await;
+
+        match send_result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => tracing::error!("Failed to send welcome email to {}: {}", user_name_for_log, e),
+            Err(e) => tracing::error!("Welcome email task panicked: {}", e),
+        }
+    });
 
     Ok(user)
 }

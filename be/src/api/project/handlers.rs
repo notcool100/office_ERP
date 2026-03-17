@@ -34,6 +34,7 @@ pub async fn list_projects_handler(
     Extension(db): Extension<Db>,
     Extension(user): Extension<User>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(user_id = %user.id, "list_projects");
     let projects = service::list_projects(&db, &user)
         .await
         .map_err(map_error)?;
@@ -61,6 +62,12 @@ pub async fn create_project_handler(
     Extension(user): Extension<User>,
     Json(payload): Json<CreateProjectDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_key = %payload.project_key,
+        name = %payload.name,
+        "create_project"
+    );
     let project = service::create_project(&db, &user, payload)
         .await
         .map_err(map_error)?;
@@ -85,6 +92,7 @@ pub async fn get_project_handler(
     Extension(user): Extension<User>,
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(user_id = %user.id, project_id = %id, "get_project");
     let project = service::get_project_by_id(&db, id, &user)
         .await
         .map_err(map_error)?;
@@ -110,6 +118,13 @@ pub async fn update_project_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateProjectDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        name = ?payload.name,
+        status = ?payload.status,
+        "update_project"
+    );
     let project = service::update_project(&db, id, &user, payload)
         .await
         .map_err(map_error)?;
@@ -134,6 +149,7 @@ pub async fn list_project_members_handler(
     Extension(user): Extension<User>,
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(user_id = %user.id, project_id = %id, "list_project_members");
     let members = service::list_project_members(&db, id, &user)
         .await
         .map_err(map_error)?;
@@ -160,6 +176,13 @@ pub async fn add_project_member_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<AddProjectMemberDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        member_user_id = %payload.user_id,
+        role = %payload.role,
+        "add_project_member"
+    );
     let member = service::add_project_member(&db, id, &user, payload)
         .await
         .map_err(map_error)?;
@@ -182,6 +205,7 @@ pub async fn get_project_board_handler(
     Extension(user): Extension<User>,
     Path(id): Path<Uuid>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(user_id = %user.id, project_id = %id, "get_project_board");
     let (board, columns) = service::get_board_with_columns(&db, id, &user)
         .await
         .map_err(map_error)?;
@@ -214,6 +238,12 @@ pub async fn list_cards_handler(
     Path(id): Path<Uuid>,
     Query(query): Query<ListCardsQuery>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        column_id = ?query.column_id,
+        "list_cards"
+    );
     let cards = service::list_cards(&db, id, &user, query)
         .await
         .map_err(map_error)?;
@@ -245,6 +275,13 @@ pub async fn create_card_handler(
     Path(id): Path<Uuid>,
     Json(payload): Json<CreateCardDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        column_id = ?payload.column_id,
+        title = %payload.title,
+        "create_card"
+    );
     let card = service::create_card(&db, id, &user, payload)
         .await
         .map_err(map_error)?;
@@ -273,6 +310,14 @@ pub async fn update_card_handler(
     Path((id, card_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<UpdateCardDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        card_id = %card_id,
+        column_id = ?payload.column_id,
+        title = ?payload.title,
+        "update_card"
+    );
     let card = service::update_card(&db, id, card_id, &user, payload)
         .await
         .map_err(map_error)?;
@@ -300,6 +345,12 @@ pub async fn delete_card_handler(
     Extension(user): Extension<User>,
     Path((id, card_id)): Path<(Uuid, Uuid)>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        card_id = %card_id,
+        "delete_card"
+    );
     service::delete_card(&db, id, card_id, &user)
         .await
         .map_err(map_error)?;

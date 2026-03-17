@@ -448,8 +448,28 @@ pub async fn create_card(
                     .fetch_one(&pool_clone)
                     .await
                 {
-                    let mailer = crate::api::user::mailer::Mailer::new();
-                    let _ = mailer.send_task_assignment_email(&user.email, &user.user_name, &card_clone.title, &project, &card_clone.priority);
+                    let to = user.email.clone();
+                    let assignee_name = user.user_name.clone();
+                    let task_title = card_clone.title.clone();
+                    let project_name = project.clone();
+                    let priority = card_clone.priority.clone();
+                    let send_result = tokio::task::spawn_blocking(move || {
+                        let mailer = crate::api::user::mailer::Mailer::new();
+                        mailer.send_task_assignment_email(
+                            &to,
+                            &assignee_name,
+                            &task_title,
+                            &project_name,
+                            &priority,
+                        )
+                    })
+                    .await;
+
+                    match send_result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(e)) => tracing::error!("Task assignment email failed: {}", e),
+                        Err(e) => tracing::error!("Task assignment email task panicked: {}", e),
+                    }
                 }
             }
         });
@@ -520,8 +540,28 @@ pub async fn update_card(
                     .fetch_one(&pool_clone)
                     .await
                 {
-                    let mailer = crate::api::user::mailer::Mailer::new();
-                    let _ = mailer.send_task_assignment_email(&user.email, &user.user_name, &card_clone.title, &project, &card_clone.priority);
+                    let to = user.email.clone();
+                    let assignee_name = user.user_name.clone();
+                    let task_title = card_clone.title.clone();
+                    let project_name = project.clone();
+                    let priority = card_clone.priority.clone();
+                    let send_result = tokio::task::spawn_blocking(move || {
+                        let mailer = crate::api::user::mailer::Mailer::new();
+                        mailer.send_task_assignment_email(
+                            &to,
+                            &assignee_name,
+                            &task_title,
+                            &project_name,
+                            &priority,
+                        )
+                    })
+                    .await;
+
+                    match send_result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(e)) => tracing::error!("Task assignment email failed: {}", e),
+                        Err(e) => tracing::error!("Task assignment email task panicked: {}", e),
+                    }
                 }
             }
         });
