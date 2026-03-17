@@ -9,7 +9,7 @@
     import { userStore } from '$lib/stores/user';
     import { userService } from '$lib/services/user-service';
     import type { User } from '$lib/types/user';
-    import { PUBLIC_API_URL } from '$env/static/public';
+    import { buildWsUrl } from '$lib/services/api';
     import {
         Send,
         Hash,
@@ -111,8 +111,7 @@
     function connectWs() {
         if (socket) socket.close();
 
-        const wsUrl =
-            PUBLIC_API_URL.replace('http', 'ws') + `/ws/messaging/${channelId}`;
+        const wsUrl = buildWsUrl(`/ws/messaging/${channelId}`);
         socket = new WebSocket(wsUrl);
 
         socket.onmessage = (event) => {

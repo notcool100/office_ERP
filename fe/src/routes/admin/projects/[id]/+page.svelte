@@ -10,6 +10,8 @@
         Plus,
         Trash2,
         RefreshCcw,
+        Pen,
+        PenIcon,
     } from 'lucide-svelte';
     import PageSection from '../../../../components/PageSection.svelte';
     import { projectService } from '$lib/services/project';
@@ -38,8 +40,10 @@
     let loading = true;
     let errorMessage = '';
     let showCardModal = false;
+    let IsCardEdit = false;
     let showMemberModal = false;
-
+    let editingCardId: string | null = null;
+let selectedCards: Card[] = [];
     let cardForm = {
         column_id: '',
         title: '',
@@ -115,11 +119,26 @@
             due_date: '',
         };
         showCardModal = true;
+        IsCardEdit = false;
+    }
+    function openEditCardModal(card:Card){
+    editingCardId = card.id;
+    cardForm = {
+        column_id:card.column_id||"",
+        title:card.title,
+        description:card.description||"",
+        priority:card.priority,
+        assignee_id:card.assignee_id||"",
+        due_date:card.due_date||""
+    };
+    showCardModal = true;
+    IsCardEdit = true;
     }
 
-    async function handleCreateCard() {
+    async function handleCreateUpdateCard() {
         if (!cardForm.title.trim()) return;
         try {
+            if(!IsCardEdit){
             await projectService.createCard(projectId, {
                 column_id: cardForm.column_id || undefined,
                 title: cardForm.title,
@@ -128,6 +147,19 @@
                 assignee_id: cardForm.assignee_id || undefined,
                 due_date: cardForm.due_date || undefined,
             });
+             
+            }
+       else{
+        if(!editingCardId) return;
+        await projectService.updateCard(projectId,editingCardId,{
+            column_id: cardForm.column_id || undefined,
+                title: cardForm.title,
+                description: cardForm.description || undefined,
+                priority: cardForm.priority,
+                assignee_id: cardForm.assignee_id || undefined,
+                due_date: cardForm.due_date || undefined,
+        })
+       }
             showCardModal = false;
             cards = await projectService.listCards(projectId);
         } catch (error) {
@@ -239,7 +271,16 @@
                                         <div class="card-body p-3 space-y-2">
                                             <div class="font-medium">
                                                 {card.title}
+                                                <button
+                                                    class="btn btn-xs btn-ghost text-warning"
+                                                    
+                                                    on:click={() =>
+                                                        openEditCardModal(card)}
+                                                    title="Edit card">
+                                                    <PenIcon class="w-3 h-3" />
+                                                </button>
                                             </div>
+                                          
                                             {#if card.description}
                                                 <div class="text-xs opacity-70">
                                                     {card.description}
@@ -332,7 +373,7 @@
     <dialog class="modal modal-open">
         <div class="modal-box">
             <h3 class="font-bold text-lg mb-4">Add Card</h3>
-            <form on:submit|preventDefault={handleCreateCard}>
+            <form on:submit|preventDefault={handleCreateUpdateCard}>
                 <div class="form-control">
                     <label class="label" for="card-title">
                         <span class="label-text">Title *</span>
@@ -401,8 +442,11 @@
                         Cancel
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        Create
-                    </button>
+                        {#if IsCardEdit}
+updateCard
+{:else}
+create
+{/if}                    </button>
                 </div>
             </form>
         </div>

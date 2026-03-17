@@ -1,11 +1,43 @@
 import { PUBLIC_API_URL } from '$env/static/public';
 
+const RAW_API_BASE = (PUBLIC_API_URL || '').trim();
+const API_BASE = RAW_API_BASE.endsWith('/')
+    ? RAW_API_BASE.slice(0, -1)
+    : RAW_API_BASE;
+
+function normalizePath(path: string) {
+    return path.startsWith('/') ? path : `/${path}`;
+}
+
+export function buildApiUrl(url: string) {
+    if (url.startsWith('http')) return url;
+    if (API_BASE && url.startsWith(API_BASE)) return url;
+    const path = normalizePath(url);
+    if (!API_BASE) return path;
+    return `${API_BASE}${path}`;
+}
+
+export function buildWsUrl(path: string) {
+    const normalizedPath = normalizePath(path);
+
+    if (API_BASE.startsWith('http')) {
+        return `${API_BASE.replace(/^http/, 'ws')}${normalizedPath}`;
+    }
+
+    if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${protocol}//${window.location.host}${API_BASE}${normalizedPath}`;
+    }
+
+    return `${API_BASE}${normalizedPath}`;
+}
+
 interface RequestOptions extends RequestInit {
     headers?: Record<string, string>;
 }
 
 async function customFetch(url: string, options: RequestOptions = {}): Promise<Response> {
-    const fullUrl = url.startsWith('http') ? url : `${PUBLIC_API_URL}${url}`;
+    const fullUrl = buildApiUrl(url);
 
     // Add Authorization header if token exists
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -38,7 +70,7 @@ async function customFetch(url: string, options: RequestOptions = {}): Promise<R
 
         try {
             // Attempt to refresh token
-            const refreshRes = await fetch(`${PUBLIC_API_URL}/auth/refresh`, {
+            const refreshRes = await fetch(buildApiUrl('/auth/refresh'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refreshToken })

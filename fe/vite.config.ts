@@ -13,6 +13,16 @@ export default defineConfig({
             outdir: './src/lib/paraglide',
         }),
     ],
+    server: {
+        proxy: {
+            '/api': {
+                target: 'http://localhost:3117',
+                changeOrigin: true,
+                ws: true,
+                rewrite: (path: string) => path.replace(/^\/api/, ''),
+            },
+        },
+    },
     test: {
         workspace: [
             {

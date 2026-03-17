@@ -16,6 +16,8 @@ npm install
 npm run dev
 ```
 
+The dev server proxies `/api` to the Rust backend at `http://localhost:3117`, so keep `PUBLIC_API_URL=/api` in `fe/.env` and restart the dev server after changes.
+
 ## Building for Production
 
 ```bash

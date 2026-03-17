@@ -1,4 +1,4 @@
-import { PUBLIC_API_URL } from '$env/static/public';
+import { buildWsUrl } from './api';
 import { notifications } from '../stores/notification';
 import { userStore } from '../stores/user';
 import { get } from 'svelte/store';
@@ -16,7 +16,7 @@ export const notificationService = {
             return;
         }
 
-        const wsUrl = PUBLIC_API_URL.replace('http', 'ws') + '/ws/notifications';
+        const wsUrl = buildWsUrl('/ws/notifications');
 
         const token = localStorage.getItem('access_token');
         socket = new WebSocket(`${wsUrl}?token=${token}`);
