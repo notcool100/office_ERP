@@ -3,6 +3,12 @@
 **/*.rs.bk
 Cargo.lock
 
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
 # Node
 node_modules/
 dist/
@@ -11,6 +17,15 @@ build/
 
 # Svelte
 /.svelte-kit
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+coverage/
+**/ios/Flutter/.last_build_id
 
 # IDE
 .vscode/
