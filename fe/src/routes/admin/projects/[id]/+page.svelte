@@ -10,8 +10,7 @@
         Plus,
         Trash2,
         RefreshCcw,
-        Pen,
-        PenIcon,
+        Edit,
     } from 'lucide-svelte';
     import PageSection from '../../../../components/PageSection.svelte';
     import { projectService } from '$lib/services/project';
@@ -271,14 +270,12 @@ let selectedCards: Card[] = [];
                                         <div class="card-body p-3 space-y-2">
                                             <div class="font-medium">
                                                 {card.title}
-                                                <button
-                                                    class="btn btn-xs btn-ghost text-warning"
-                                                    
-                                                    on:click={() =>
-                                                        openEditCardModal(card)}
-                                                    title="Edit card">
-                                                    <PenIcon class="w-3 h-3" />
-                                                </button>
+                                                    <button
+                                                        class="btn btn-xs btn-ghost text-warning"
+                                                        on:click={() => openEditCardModal(card)}
+                                                        title="Edit card">
+                                                        <Edit class="w-3 h-3" />
+                                                    </button>
                                             </div>
                                           
                                             {#if card.description}
