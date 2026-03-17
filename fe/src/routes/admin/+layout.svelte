@@ -15,6 +15,8 @@
     import { adminShortcuts } from '$lib/layout/shortcuts';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
+    import ToastContainer from '$lib/components/ToastContainer.svelte';
+    import { notificationService } from '$lib/services/notification-service';
     const { children } = $props();
 
     interface Tab {
@@ -86,16 +88,24 @@
         initShortcutListener();
         adminShortcuts.forEach((sc) => registerShortcut(sc));
         await userStore.init();
+
+        // Connect to notifications if authenticated
+        if ($userStore.isAuthenticated) {
+            notificationService.connect();
+        }
     });
 
     onDestroy(() => {
         adminShortcuts.forEach((sc) => unregisterShortcut(sc.key));
+        notificationService.disconnect();
     });
 </script>
 
 <svelte:head>
     <title>{$pageTitle.title} - U-BUCK</title>
 </svelte:head>
+
+<ToastContainer />
 
 <div
     class="h-screen bg-base-300 text-base-content flex flex-col font-mono text-sm">

@@ -60,6 +60,12 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
 
     let ws_route = Router::new()
         .route("/ws/messaging/{channel_id}", get(crate::ws::ws_handler))
+        .route(
+            "/ws/notifications",
+            get(crate::ws::notification_ws_handler).layer(
+                axum::middleware::from_fn(crate::middlewares::auth::authenticate),
+            ),
+        )
         .with_state(hub);
 
     Router::new()

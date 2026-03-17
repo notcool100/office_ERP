@@ -82,12 +82,23 @@ pub async fn send_message_handler(
             StatusCode::BAD_REQUEST
         })?;
 
-    // Broadcast message to hub
+    // Broadcast message to the channel hub
     let ws_msg = WsMessage {
         message_type: "new_message".to_string(),
         payload: serde_json::to_value(&message).unwrap(),
     };
-    hub.broadcast(channel_id, ws_msg);
+    hub.broadcast(channel_id, ws_msg.clone());
+
+    // Also broadcast as a notification to all members' personal hubs
+    if let Ok(member_ids) = service::get_channel_member_ids(&db, channel_id).await {
+        for member_id in member_ids {
+            // Optional: Don't send notification to the sender? 
+            // Usually fine to send, frontend can filter or show "message sent".
+            if member_id != user.id {
+                hub.send_to_user(member_id, ws_msg.clone());
+            }
+        }
+    }
 
     Ok((StatusCode::CREATED, Json(message)))
 }

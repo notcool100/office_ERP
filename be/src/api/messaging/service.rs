@@ -221,6 +221,16 @@ pub async fn list_channel_members(db: &Db, channel_id: Uuid, user_id: Uuid) -> R
     Ok(members)
 }
 
+pub async fn get_channel_member_ids(db: &Db, channel_id: Uuid) -> Result<Vec<Uuid>> {
+    let ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT user_id FROM channel_members WHERE channel_id = $1"
+    )
+    .bind(channel_id)
+    .fetch_all(db)
+    .await?;
+    Ok(ids)
+}
+
 pub async fn update_channel(db: &Db, channel_id: Uuid, user_id: Uuid, req: crate::api::messaging::dto::UpdateChannelRequest) -> Result<Channel> {
     // Verify user is an admin or creator (for now, simply being an admin in channel_members)
     // If there is no admin logic implemented widely, we can just check if they are a member if not a strict system. 

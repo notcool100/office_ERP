@@ -1,4 +1,4 @@
-use axum::{Router, routing::get, routing::post, routing::put, routing::delete};
+use axum::{Router, routing::get, routing::delete};
 use crate::api::messaging::handler::{
     list_channels_handler, create_channel_handler, list_messages_handler, 
     send_message_handler, get_channel_handler, add_member_handler,
