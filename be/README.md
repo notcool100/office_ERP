@@ -63,5 +63,6 @@ To populate the database with initial data (Admin user, Roles, Permissions, etc.
 - Permissions are derived from the employee/intern record linked to the logged-in user (`person_id`) and evaluated against `role_permissions`.
 - Positions can be linked to departments via `department_id` for cleaner role grouping.
 - The `/projects` endpoints are also protected by RBAC (`/admin/projects`) and additionally enforce project membership for board and card actions.
+- Project card APIs now include Agile card details such as generated human-readable card keys, sprint labels, card comments, attachment upload/download, and activity history endpoints.
 - The `/calendar` endpoints support personal, department, and company events, with personal events restricted to the creator and shared events guarded by calendar permissions.
 - The `/employees/me` endpoint returns the current user's employee record for attendance workflows and is protected by `/admin/hr/attendance` permissions.

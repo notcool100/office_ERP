@@ -1,10 +1,17 @@
 use crate::{
-    api::messaging::{dto::{CreateChannelRequest, SendMessageRequest, AddMemberRequest, UpdateChannelRequest}, service},
+    api::messaging::{
+        dto::{AddMemberRequest, CreateChannelRequest, SendMessageRequest, UpdateChannelRequest},
+        service,
+    },
     db::Db,
     models::user::User,
     ws::hub::{Hub, WsMessage},
 };
-use axum::{Extension, Json, http::StatusCode, extract::{Path, State}};
+use axum::{
+    Extension, Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -61,7 +68,13 @@ pub async fn create_channel_handler(
 pub async fn list_messages_handler(
     Extension(db): Extension<Db>,
     Path(channel_id): Path<Uuid>,
-) -> Result<(StatusCode, Json<Vec<crate::api::messaging::dto::MessageResponse>>), StatusCode> {
+) -> Result<
+    (
+        StatusCode,
+        Json<Vec<crate::api::messaging::dto::MessageResponse>>,
+    ),
+    StatusCode,
+> {
     let messages = service::list_messages(&db, channel_id, 50)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -92,7 +105,7 @@ pub async fn send_message_handler(
     // Also broadcast as a notification to all members' personal hubs
     if let Ok(member_ids) = service::get_channel_member_ids(&db, channel_id).await {
         for member_id in member_ids {
-            // Optional: Don't send notification to the sender? 
+            // Optional: Don't send notification to the sender?
             // Usually fine to send, frontend can filter or show "message sent".
             if member_id != user.id {
                 hub.send_to_user(member_id, ws_msg.clone());

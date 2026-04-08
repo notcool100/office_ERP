@@ -1,9 +1,9 @@
 use crate::db::VmailDb;
-use sha2::{Digest, Sha512};
-use rand::RngCore;
-use base64::{engine::general_purpose, Engine as _};
 use anyhow::{Result, anyhow};
+use base64::{Engine as _, engine::general_purpose};
 use chrono::Utc;
+use rand::RngCore;
+use sha2::{Digest, Sha512};
 
 pub struct VmailService;
 
@@ -20,26 +20,29 @@ impl VmailService {
         }
         let username = parts[0];
         let domain = parts[1];
-        
+
         // Check if user already exists
         let exists: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM mailbox WHERE username = ?")
             .bind(email)
             .fetch_one(db)
             .await?;
-            
+
         if exists > 0 {
             return Ok(());
         }
 
         let hashed_password = Self::ssha512_hash(password);
         let timestamp = Utc::now().format("%Y.%m.%d.%H.%M.%S").to_string();
-        
+
         // Maildir format: domain/first_char/second_char/third_char/username-timestamp/
         let mut chars = username.chars();
         let c1 = chars.next().unwrap_or('?').to_string();
         let c2 = chars.next().unwrap_or('?').to_string();
         let c3 = chars.next().unwrap_or('?').to_string();
-        let maildir = format!("{}/{}/{}/{}/{}-{}/", domain, c1, c2, c3, username, timestamp);
+        let maildir = format!(
+            "{}/{}/{}/{}/{}-{}/",
+            domain, c1, c2, c3, username, timestamp
+        );
 
         // Insert into mailbox
         sqlx::query(
@@ -103,15 +106,15 @@ impl VmailService {
     fn ssha512_hash(password: &str) -> String {
         let mut salt = [0u8; 8];
         rand::thread_rng().fill_bytes(&mut salt);
-        
+
         let mut hasher = Sha512::new();
         hasher.update(password.as_bytes());
         hasher.update(&salt);
         let hash = hasher.finalize();
-        
+
         let mut combined = hash.to_vec();
         combined.extend_from_slice(&salt);
-        
+
         format!("{{SSHA512}}{}", general_purpose::STANDARD.encode(combined))
     }
 }

@@ -1,11 +1,12 @@
 use crate::{
     api::project::dto::{
-        AddProjectMemberDto, CreateCardDto, CreateProjectDto, ListCardsQuery, UpdateCardDto,
-        UpdateProjectDto,
+        AddProjectMemberDto, CreateCardCommentDto, CreateCardDto, CreateProjectDto, CreateSprintDto,
+        ListCardsQuery, UpdateCardDto, UpdateProjectDto, UpdateSprintDto,
     },
     models::{board::Board, board_column::BoardColumn, project::Project, user::User},
 };
 use chrono::Utc;
+use serde_json::Value;
 use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -17,6 +18,8 @@ pub enum ProjectError {
     Forbidden,
     #[error("{0}")]
     BadRequest(String),
+    #[error("Payload too large")]
+    PayloadTooLarge,
     #[error("Database error")]
     Database(#[from] sqlx::Error),
 }
@@ -50,8 +53,11 @@ pub struct CardWithAssignee {
     pub id: Uuid,
     pub project_id: Uuid,
     pub column_id: Option<Uuid>,
+    pub sequence_no: i32,
+    pub card_key: String,
     pub title: String,
     pub description: Option<String>,
+    pub sprint_name: Option<String>,
     pub priority: String,
     pub assignee_id: Option<Uuid>,
     pub assignee_name: Option<String>,
@@ -59,6 +65,65 @@ pub struct CardWithAssignee {
     pub display_order: i32,
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
+    pub sprint_id: Option<Uuid>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct SprintInfo {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub name: String,
+    pub goal: Option<String>,
+    pub start_date: Option<chrono::NaiveDate>,
+    pub end_date: Option<chrono::NaiveDate>,
+    pub status: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CardCommentWithUser {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub card_id: Uuid,
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub comment: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CardAttachmentInfo {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub card_id: Uuid,
+    pub uploaded_by: Option<Uuid>,
+    pub uploader_name: Option<String>,
+    pub file_name: String,
+    pub content_type: String,
+    pub file_size: i64,
+    pub created_at: chrono::NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CardAttachmentFile {
+    pub id: Uuid,
+    pub file_name: String,
+    pub content_type: String,
+    pub file_data: Vec<u8>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CardActivityInfo {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub card_id: Uuid,
+    pub actor_id: Option<Uuid>,
+    pub actor_name: Option<String>,
+    pub action_type: String,
+    pub description: String,
+    pub created_at: chrono::NaiveDateTime,
 }
 
 fn can_write(role: &str) -> bool {
@@ -357,40 +422,155 @@ pub async fn list_cards(
 ) -> Result<Vec<CardWithAssignee>, ProjectError> {
     ensure_member(pool, project_id, user).await?;
 
-    let cards = if let Some(column_id) = query.column_id {
-        sqlx::query_as::<_, CardWithAssignee>(
-            r#"
-            SELECT c.id, c.project_id, c.column_id, c.title, c.description, c.priority,
-                   c.assignee_id, u.user_name as assignee_name, c.due_date,
-                   c.display_order, c.created_at, c.updated_at
-            FROM cards c
-            LEFT JOIN users u ON u.id = c.assignee_id
-            WHERE c.project_id = $1 AND c.column_id = $2
-            ORDER BY c.display_order, c.created_at
-            "#,
-        )
-        .bind(project_id)
-        .bind(column_id)
-        .fetch_all(pool)
-        .await?
-    } else {
-        sqlx::query_as::<_, CardWithAssignee>(
-            r#"
-            SELECT c.id, c.project_id, c.column_id, c.title, c.description, c.priority,
-                   c.assignee_id, u.user_name as assignee_name, c.due_date,
-                   c.display_order, c.created_at, c.updated_at
-            FROM cards c
-            LEFT JOIN users u ON u.id = c.assignee_id
-            WHERE c.project_id = $1
-            ORDER BY c.display_order, c.created_at
-            "#,
-        )
-        .bind(project_id)
-        .fetch_all(pool)
-        .await?
-    };
+    let mut sql = String::from(
+        r#"
+        SELECT c.id, c.project_id, c.column_id, c.sequence_no, c.card_key,
+               c.title, c.description, c.sprint_name, c.priority, c.assignee_id,
+               u.user_name as assignee_name, c.due_date, c.display_order,
+               c.created_at, c.updated_at, c.sprint_id
+        FROM cards c
+        LEFT JOIN users u ON u.id = c.assignee_id
+        WHERE c.project_id = $1
+        "#,
+    );
+
+    let mut bind_index = 2;
+    if query.column_id.is_some() {
+        sql.push_str(&format!(" AND c.column_id = ${}", bind_index));
+        bind_index += 1;
+    }
+    if query.sprint_id.is_some() {
+        sql.push_str(&format!(" AND c.sprint_id = ${}", bind_index));
+        bind_index += 1;
+    }
+
+    sql.push_str(" ORDER BY c.display_order, c.sequence_no, c.created_at");
+
+    let mut q = sqlx::query_as::<_, CardWithAssignee>(&sql).bind(project_id);
+
+    if let Some(column_id) = query.column_id {
+        q = q.bind(column_id);
+    }
+    if let Some(sprint_id) = query.sprint_id {
+        q = q.bind(sprint_id);
+    }
+
+    let cards = q.fetch_all(pool).await?;
 
     Ok(cards)
+}
+
+pub async fn list_sprints(
+    pool: &PgPool,
+    project_id: Uuid,
+    user: &User,
+) -> Result<Vec<SprintInfo>, ProjectError> {
+    ensure_member(pool, project_id, user).await?;
+
+    let sprints = sqlx::query_as::<_, SprintInfo>(
+        r#"
+        SELECT * FROM sprints
+        WHERE project_id = $1
+        ORDER BY created_at DESC
+        "#,
+    )
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(sprints)
+}
+
+pub async fn create_sprint(
+    pool: &PgPool,
+    project_id: Uuid,
+    user: &User,
+    dto: CreateSprintDto,
+) -> Result<SprintInfo, ProjectError> {
+    ensure_manage_role(pool, project_id, user).await?;
+
+    let name = dto.name.trim();
+    if name.is_empty() {
+        return Err(ProjectError::BadRequest("Sprint name is required".to_string()));
+    }
+
+    let now = Utc::now().naive_utc();
+    let sprint = sqlx::query_as::<_, SprintInfo>(
+        r#"
+        INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, 'planning', $6, $6)
+        RETURNING *
+        "#,
+    )
+    .bind(project_id)
+    .bind(name)
+    .bind(dto.goal)
+    .bind(dto.start_date)
+    .bind(dto.end_date)
+    .bind(now)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(sprint)
+}
+
+pub async fn update_sprint(
+    pool: &PgPool,
+    project_id: Uuid,
+    sprint_id: Uuid,
+    user: &User,
+    dto: UpdateSprintDto,
+) -> Result<SprintInfo, ProjectError> {
+    ensure_manage_role(pool, project_id, user).await?;
+
+    let now = Utc::now().naive_utc();
+    let sprint = sqlx::query_as::<_, SprintInfo>(
+        r#"
+        UPDATE sprints
+        SET name = COALESCE($1, name),
+            goal = COALESCE($2, goal),
+            start_date = COALESCE($3, start_date),
+            end_date = COALESCE($4, end_date),
+            status = COALESCE($5, status),
+            updated_at = $6
+        WHERE id = $7 AND project_id = $8
+        RETURNING *
+        "#,
+    )
+    .bind(dto.name)
+    .bind(dto.goal)
+    .bind(dto.start_date)
+    .bind(dto.end_date)
+    .bind(dto.status)
+    .bind(now)
+    .bind(sprint_id)
+    .bind(project_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(ProjectError::NotFound)?;
+
+    Ok(sprint)
+}
+
+pub async fn delete_sprint(
+    pool: &PgPool,
+    project_id: Uuid,
+    sprint_id: Uuid,
+    user: &User,
+) -> Result<(), ProjectError> {
+    ensure_manage_role(pool, project_id, user).await?;
+
+    let result = sqlx::query("DELETE FROM sprints WHERE id = $1 AND project_id = $2")
+        .bind(sprint_id)
+        .bind(project_id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ProjectError::NotFound);
+    }
+
+    Ok(())
 }
 
 pub async fn create_card(
@@ -401,40 +581,79 @@ pub async fn create_card(
 ) -> Result<CardWithAssignee, ProjectError> {
     ensure_write_role(pool, project_id, user).await?;
 
+    let title = dto.title.trim();
+    if title.is_empty() {
+        return Err(ProjectError::BadRequest(
+            "Card title is required".to_string(),
+        ));
+    }
+
     let column_id = resolve_column_id(pool, project_id, dto.column_id).await?;
     let display_order = match dto.display_order {
         Some(order) => order,
         None => next_card_order(pool, column_id).await?,
     };
+    let priority = normalize_priority(dto.priority.as_deref())?;
+    let sprint_name = normalize_optional_text(dto.sprint_name.as_deref(), 100);
+    let description = normalize_optional_text(dto.description.as_deref(), 20_000);
+    let now = Utc::now().naive_utc();
+
+    let mut tx = pool.begin().await?;
+    let project_name = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+        .bind(project_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(ProjectError::NotFound)?;
+    let sequence_no = next_card_sequence(&mut tx, project_id).await?;
+    let card_key = build_card_key(&project_name, sequence_no);
 
     let card = sqlx::query_as::<_, CardWithAssignee>(
         r#"
         WITH new_card AS (
             INSERT INTO cards (
-                project_id, column_id, title, description, priority,
-                assignee_id, due_date, display_order, created_at, updated_at
+                project_id, column_id, sequence_no, card_key, title, description,
+                sprint_name, priority, assignee_id, due_date, display_order,
+                created_at, updated_at, sprint_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13)
             RETURNING *
         )
-        SELECT nc.id, nc.project_id, nc.column_id, nc.title, nc.description, nc.priority,
+        SELECT nc.id, nc.project_id, nc.column_id, nc.sequence_no, nc.card_key,
+               nc.title, nc.description, nc.sprint_name, nc.priority,
                nc.assignee_id, u.user_name as assignee_name, nc.due_date,
-               nc.display_order, nc.created_at, nc.updated_at
+               nc.display_order, nc.created_at, nc.updated_at, nc.sprint_id
         FROM new_card nc
         LEFT JOIN users u ON u.id = nc.assignee_id
         "#,
     )
     .bind(project_id)
     .bind(column_id)
-    .bind(&dto.title)
-    .bind(&dto.description)
-    .bind(dto.priority.unwrap_or_else(|| "medium".to_string()))
+    .bind(sequence_no)
+    .bind(&card_key)
+    .bind(title)
+    .bind(description)
+    .bind(sprint_name)
+    .bind(priority)
     .bind(dto.assignee_id)
     .bind(dto.due_date)
     .bind(display_order)
-    .bind(Utc::now().naive_utc())
-    .fetch_one(pool)
+    .bind(now)
+    .bind(dto.sprint_id)
+    .fetch_one(&mut *tx)
     .await?;
+
+    log_card_activity_tx(
+        &mut tx,
+        project_id,
+        card.id,
+        Some(user.id),
+        "created",
+        format!("Created card {}", card.card_key),
+        None,
+    )
+    .await?;
+
+    tx.commit().await?;
 
     // Send assignment email if assignee is set
     if let Some(assignee_id) = card.assignee_id {
@@ -443,10 +662,11 @@ pub async fn create_card(
         tokio::spawn(async move {
             if let Ok(user) = crate::api::user::service::get_by_id(&pool_clone, assignee_id).await {
                 // Get project name
-                if let Ok(project) = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
-                    .bind(card_clone.project_id)
-                    .fetch_one(&pool_clone)
-                    .await
+                if let Ok(project) =
+                    sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+                        .bind(card_clone.project_id)
+                        .fetch_one(&pool_clone)
+                        .await
                 {
                     let to = user.email.clone();
                     let assignee_name = user.user_name.clone();
@@ -487,8 +707,15 @@ pub async fn update_card(
 ) -> Result<CardWithAssignee, ProjectError> {
     ensure_write_role(pool, project_id, user).await?;
 
-    let column_id = match dto.column_id {
+    let existing = get_card_with_assignee(pool, project_id, card_id).await?;
+    let resolved_column_id = match dto.column_id {
         Some(column_id) => Some(resolve_column_id(pool, project_id, Some(column_id)).await?),
+        None => existing.column_id,
+    };
+    let sprint_name = normalize_optional_text(dto.sprint_name.as_deref(), 100);
+    let description = normalize_optional_text(dto.description.as_deref(), 20_000);
+    let priority = match dto.priority.as_deref() {
+        Some(value) => Some(normalize_priority(Some(value))?),
         None => None,
     };
 
@@ -496,37 +723,97 @@ pub async fn update_card(
         r#"
         WITH updated AS (
             UPDATE cards
-            SET column_id = COALESCE($1, column_id),
+            SET column_id = $1,
                 title = COALESCE($2, title),
                 description = COALESCE($3, description),
-                priority = COALESCE($4, priority),
-                assignee_id = COALESCE($5, assignee_id),
-                due_date = COALESCE($6, due_date),
-                display_order = COALESCE($7, display_order),
-                updated_at = $8
-            WHERE id = $9 AND project_id = $10
+                sprint_name = COALESCE($4, sprint_name),
+                priority = COALESCE($5, priority),
+                assignee_id = COALESCE($6, assignee_id),
+                due_date = COALESCE($7, due_date),
+                display_order = COALESCE($8, display_order),
+                updated_at = $9,
+                sprint_id = COALESCE($12, sprint_id)
+            WHERE id = $10 AND project_id = $11
             RETURNING *
         )
-        SELECT u.id, u.project_id, u.column_id, u.title, u.description, u.priority,
-               u.assignee_id, usr.user_name as assignee_name, u.due_date,
-               u.display_order, u.created_at, u.updated_at
+        SELECT u.id, u.project_id, u.column_id, u.sequence_no, u.card_key,
+               u.title, u.description, u.sprint_name, u.priority, u.assignee_id,
+               usr.user_name as assignee_name, u.due_date,
+               u.display_order, u.created_at, u.updated_at, u.sprint_id
         FROM updated u
         LEFT JOIN users usr ON usr.id = u.assignee_id
         "#,
     )
-    .bind(column_id)
+    .bind(resolved_column_id)
     .bind(dto.title)
-    .bind(dto.description)
-    .bind(dto.priority)
+    .bind(description)
+    .bind(sprint_name)
+    .bind(priority)
     .bind(dto.assignee_id)
     .bind(dto.due_date)
     .bind(dto.display_order)
     .bind(Utc::now().naive_utc())
     .bind(card_id)
     .bind(project_id)
+    .bind(dto.sprint_id)
     .fetch_optional(pool)
     .await?
     .ok_or(ProjectError::NotFound)?;
+
+    if existing.column_id != card.column_id {
+        let old_column = get_column_name(pool, existing.column_id)
+            .await?
+            .unwrap_or_else(|| "Unknown".to_string());
+        let new_column = get_column_name(pool, card.column_id)
+            .await?
+            .unwrap_or_else(|| "Unknown".to_string());
+        log_card_activity(
+            pool,
+            project_id,
+            card_id,
+            Some(user.id),
+            "moved",
+            format!("Moved card from {old_column} to {new_column}"),
+            None,
+        )
+        .await?;
+    }
+
+    let mut changed_fields: Vec<&str> = Vec::new();
+    if existing.title != card.title {
+        changed_fields.push("title");
+    }
+    if existing.description != card.description {
+        changed_fields.push("description");
+    }
+    if existing.sprint_name != card.sprint_name {
+        changed_fields.push("sprint");
+    }
+    if existing.priority != card.priority {
+        changed_fields.push("priority");
+    }
+    if existing.assignee_id != card.assignee_id {
+        changed_fields.push("assignee");
+    }
+    if existing.due_date != card.due_date {
+        changed_fields.push("due date");
+    }
+    if existing.display_order != card.display_order {
+        changed_fields.push("order");
+    }
+
+    if !changed_fields.is_empty() {
+        log_card_activity(
+            pool,
+            project_id,
+            card_id,
+            Some(user.id),
+            "updated",
+            format!("Updated {}", changed_fields.join(", ")),
+            None,
+        )
+        .await?;
+    }
 
     // Send assignment email if assignee is set/changed
     if let Some(assignee_id) = card.assignee_id {
@@ -535,10 +822,11 @@ pub async fn update_card(
         tokio::spawn(async move {
             if let Ok(user) = crate::api::user::service::get_by_id(&pool_clone, assignee_id).await {
                 // Get project name
-                if let Ok(project) = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
-                    .bind(card_clone.project_id)
-                    .fetch_one(&pool_clone)
-                    .await
+                if let Ok(project) =
+                    sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+                        .bind(card_clone.project_id)
+                        .fetch_one(&pool_clone)
+                        .await
                 {
                     let to = user.email.clone();
                     let assignee_name = user.user_name.clone();
@@ -587,6 +875,434 @@ pub async fn delete_card(
     if result.rows_affected() == 0 {
         return Err(ProjectError::NotFound);
     }
+
+    Ok(())
+}
+
+pub async fn list_card_comments(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+) -> Result<Vec<CardCommentWithUser>, ProjectError> {
+    ensure_member(pool, project_id, user).await?;
+    ensure_card_exists(pool, project_id, card_id).await?;
+
+    let comments = sqlx::query_as::<_, CardCommentWithUser>(
+        r#"
+        SELECT cc.id, cc.project_id, cc.card_id, cc.user_id, u.user_name,
+               cc.comment, cc.created_at, cc.updated_at
+        FROM card_comments cc
+        INNER JOIN users u ON u.id = cc.user_id
+        WHERE cc.project_id = $1 AND cc.card_id = $2
+        ORDER BY cc.created_at ASC
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(comments)
+}
+
+pub async fn create_card_comment(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+    dto: CreateCardCommentDto,
+) -> Result<CardCommentWithUser, ProjectError> {
+    ensure_write_role(pool, project_id, user).await?;
+    ensure_card_exists(pool, project_id, card_id).await?;
+
+    let comment = dto.comment.trim();
+    if comment.is_empty() {
+        return Err(ProjectError::BadRequest(
+            "Comment cannot be empty".to_string(),
+        ));
+    }
+
+    let now = Utc::now().naive_utc();
+    let created = sqlx::query_as::<_, CardCommentWithUser>(
+        r#"
+        WITH inserted AS (
+            INSERT INTO card_comments (
+                project_id, card_id, user_id, comment, created_at, updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $5)
+            RETURNING id, project_id, card_id, user_id, comment, created_at, updated_at
+        )
+        SELECT i.id, i.project_id, i.card_id, i.user_id, u.user_name,
+               i.comment, i.created_at, i.updated_at
+        FROM inserted i
+        INNER JOIN users u ON u.id = i.user_id
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .bind(user.id)
+    .bind(comment)
+    .bind(now)
+    .fetch_one(pool)
+    .await?;
+
+    let short_comment = if comment.chars().count() > 80 {
+        format!("{}...", comment.chars().take(80).collect::<String>())
+    } else {
+        comment.to_string()
+    };
+
+    log_card_activity(
+        pool,
+        project_id,
+        card_id,
+        Some(user.id),
+        "commented",
+        format!("Added a comment: {short_comment}"),
+        None,
+    )
+    .await?;
+
+    Ok(created)
+}
+
+pub async fn list_card_attachments(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+) -> Result<Vec<CardAttachmentInfo>, ProjectError> {
+    ensure_member(pool, project_id, user).await?;
+    ensure_card_exists(pool, project_id, card_id).await?;
+
+    let attachments = sqlx::query_as::<_, CardAttachmentInfo>(
+        r#"
+        SELECT ca.id, ca.project_id, ca.card_id, ca.uploaded_by, u.user_name as uploader_name,
+               ca.file_name, ca.content_type, ca.file_size, ca.created_at
+        FROM card_attachments ca
+        LEFT JOIN users u ON u.id = ca.uploaded_by
+        WHERE ca.project_id = $1 AND ca.card_id = $2
+        ORDER BY ca.created_at DESC
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(attachments)
+}
+
+pub async fn upload_card_attachment(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+    file_name: String,
+    content_type: String,
+    file_data: Vec<u8>,
+) -> Result<CardAttachmentInfo, ProjectError> {
+    ensure_write_role(pool, project_id, user).await?;
+    ensure_card_exists(pool, project_id, card_id).await?;
+
+    if file_data.is_empty() {
+        return Err(ProjectError::BadRequest("Attachment is empty".to_string()));
+    }
+
+    if file_data.len() > MAX_ATTACHMENT_SIZE_BYTES {
+        return Err(ProjectError::PayloadTooLarge);
+    }
+
+    let now = Utc::now().naive_utc();
+    let file_size = i64::try_from(file_data.len())
+        .map_err(|_| ProjectError::BadRequest("Attachment is too large".to_string()))?;
+
+    let attachment = sqlx::query_as::<_, CardAttachmentInfo>(
+        r#"
+        WITH inserted AS (
+            INSERT INTO card_attachments (
+                project_id, card_id, uploaded_by, file_name, content_type, file_size, file_data, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id, project_id, card_id, uploaded_by, file_name, content_type, file_size, created_at
+        )
+        SELECT i.id, i.project_id, i.card_id, i.uploaded_by, u.user_name as uploader_name,
+               i.file_name, i.content_type, i.file_size, i.created_at
+        FROM inserted i
+        LEFT JOIN users u ON u.id = i.uploaded_by
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .bind(user.id)
+    .bind(file_name.as_str())
+    .bind(content_type.as_str())
+    .bind(file_size)
+    .bind(file_data)
+    .bind(now)
+    .fetch_one(pool)
+    .await?;
+
+    log_card_activity(
+        pool,
+        project_id,
+        card_id,
+        Some(user.id),
+        "attachment_uploaded",
+        format!("Uploaded attachment {}", attachment.file_name),
+        None,
+    )
+    .await?;
+
+    Ok(attachment)
+}
+
+pub async fn get_card_attachment_file(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    attachment_id: Uuid,
+    user: &User,
+) -> Result<CardAttachmentFile, ProjectError> {
+    ensure_member(pool, project_id, user).await?;
+    ensure_card_exists(pool, project_id, card_id).await?;
+
+    let attachment = sqlx::query_as::<_, CardAttachmentFile>(
+        r#"
+        SELECT id, file_name, content_type, file_data
+        FROM card_attachments
+        WHERE id = $1 AND project_id = $2 AND card_id = $3
+        "#,
+    )
+    .bind(attachment_id)
+    .bind(project_id)
+    .bind(card_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(ProjectError::NotFound)?;
+
+    Ok(attachment)
+}
+
+pub async fn list_card_history(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+) -> Result<Vec<CardActivityInfo>, ProjectError> {
+    ensure_member(pool, project_id, user).await?;
+    ensure_card_exists(pool, project_id, card_id).await?;
+
+    let activities = sqlx::query_as::<_, CardActivityInfo>(
+        r#"
+        SELECT ca.id, ca.project_id, ca.card_id, ca.actor_id, u.user_name as actor_name,
+               ca.action_type, ca.description, ca.created_at
+        FROM card_activities ca
+        LEFT JOIN users u ON u.id = ca.actor_id
+        WHERE ca.project_id = $1 AND ca.card_id = $2
+        ORDER BY ca.created_at DESC
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(activities)
+}
+
+const MAX_ATTACHMENT_SIZE_BYTES: usize = 5 * 1024 * 1024;
+
+fn normalize_priority(priority: Option<&str>) -> Result<String, ProjectError> {
+    let value = priority.unwrap_or("medium").trim().to_ascii_lowercase();
+    if matches!(value.as_str(), "low" | "medium" | "high") {
+        Ok(value)
+    } else {
+        Err(ProjectError::BadRequest(
+            "Priority must be low, medium, or high".to_string(),
+        ))
+    }
+}
+
+fn normalize_optional_text(value: Option<&str>, max_len: usize) -> Option<String> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let normalized = trimmed.chars().take(max_len).collect::<String>();
+
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
+fn build_card_key(project_name: &str, sequence_no: i32) -> String {
+    let mut slug = String::new();
+    let mut last_was_dash = false;
+    for ch in project_name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            last_was_dash = false;
+        } else if !last_was_dash {
+            slug.push('-');
+            last_was_dash = true;
+        }
+    }
+
+    let trimmed = slug.trim_matches('-');
+    let mut short_slug = trimmed.chars().take(12).collect::<String>();
+    short_slug = short_slug.trim_matches('-').to_string();
+    if short_slug.is_empty() {
+        short_slug = "project".to_string();
+    }
+
+    format!("pro-{short_slug}-{sequence_no:02}")
+}
+
+async fn next_card_sequence(
+    tx: &mut Transaction<'_, Postgres>,
+    project_id: Uuid,
+) -> Result<i32, ProjectError> {
+    let locked_project =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM projects WHERE id = $1 FOR UPDATE")
+            .bind(project_id)
+            .fetch_optional(&mut **tx)
+            .await?;
+
+    if locked_project.is_none() {
+        return Err(ProjectError::NotFound);
+    }
+
+    let next_sequence = sqlx::query_scalar::<_, i32>(
+        "SELECT COALESCE(MAX(sequence_no), 0) + 1 FROM cards WHERE project_id = $1",
+    )
+    .bind(project_id)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(next_sequence)
+}
+
+async fn get_card_with_assignee(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+) -> Result<CardWithAssignee, ProjectError> {
+    let card = sqlx::query_as::<_, CardWithAssignee>(
+        r#"
+        SELECT c.id, c.project_id, c.column_id, c.sequence_no, c.card_key,
+               c.title, c.description, c.sprint_name, c.priority, c.assignee_id,
+               u.user_name as assignee_name, c.due_date, c.display_order,
+               c.created_at, c.updated_at, c.sprint_id
+        FROM cards c
+        LEFT JOIN users u ON u.id = c.assignee_id
+        WHERE c.project_id = $1 AND c.id = $2
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(ProjectError::NotFound)?;
+
+    Ok(card)
+}
+
+async fn ensure_card_exists(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+) -> Result<(), ProjectError> {
+    let exists =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM cards WHERE project_id = $1 AND id = $2")
+            .bind(project_id)
+            .bind(card_id)
+            .fetch_optional(pool)
+            .await?;
+
+    if exists.is_some() {
+        Ok(())
+    } else {
+        Err(ProjectError::NotFound)
+    }
+}
+
+async fn get_column_name(
+    pool: &PgPool,
+    column_id: Option<Uuid>,
+) -> Result<Option<String>, ProjectError> {
+    let Some(column_id) = column_id else {
+        return Ok(None);
+    };
+
+    let name = sqlx::query_scalar::<_, String>("SELECT name FROM board_columns WHERE id = $1")
+        .bind(column_id)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(name)
+}
+
+async fn log_card_activity(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    actor_id: Option<Uuid>,
+    action_type: &str,
+    description: String,
+    metadata: Option<Value>,
+) -> Result<(), ProjectError> {
+    sqlx::query(
+        r#"
+        INSERT INTO card_activities (
+            project_id, card_id, actor_id, action_type, description, metadata, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .bind(actor_id)
+    .bind(action_type)
+    .bind(description)
+    .bind(metadata)
+    .bind(Utc::now().naive_utc())
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn log_card_activity_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    project_id: Uuid,
+    card_id: Uuid,
+    actor_id: Option<Uuid>,
+    action_type: &str,
+    description: String,
+    metadata: Option<Value>,
+) -> Result<(), ProjectError> {
+    sqlx::query(
+        r#"
+        INSERT INTO card_activities (
+            project_id, card_id, actor_id, action_type, description, metadata, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+    )
+    .bind(project_id)
+    .bind(card_id)
+    .bind(actor_id)
+    .bind(action_type)
+    .bind(description)
+    .bind(metadata)
+    .bind(Utc::now().naive_utc())
+    .execute(&mut **tx)
+    .await?;
 
     Ok(())
 }

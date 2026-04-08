@@ -13,7 +13,9 @@ use tracing_subscriber::EnvFilter;
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let db_pool = match init_pool().await {
         Ok(pool) => pool,
@@ -21,16 +23,22 @@ async fn main() {
             tracing::error!("Failed to init DB pool: {}", e);
             eprintln!("Failed to init DB pool: {}", e);
             // We still need a pool for the app to function, but we can return the error
-            // or exit gracefully if it's strictly required. 
-            // For now, let's keep the panic but with a better message, 
+            // or exit gracefully if it's strictly required.
+            // For now, let's keep the panic but with a better message,
             // OR make it optional if the user wants to just see the server start.
-            panic!("Critical: Failed to connect to primary database. Please check your DATABASE_URL in .env (if you are local, try using localhost). Error: {}", e);
+            panic!(
+                "Critical: Failed to connect to primary database. Please check your DATABASE_URL in .env (if you are local, try using localhost). Error: {}",
+                e
+            );
         }
     };
     let vmail_pool = match init_vmail_pool().await {
         Ok(pool) => Some(pool),
         Err(e) => {
-            tracing::warn!("Failed to init vmail pool (this is normal for local development if you don't have remote access): {}", e);
+            tracing::warn!(
+                "Failed to init vmail pool (this is normal for local development if you don't have remote access): {}",
+                e
+            );
             None
         }
     };

@@ -1,6 +1,6 @@
+use anyhow::Result;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
-use anyhow::Result;
 use std::env;
 
 pub struct Mailer {
@@ -11,7 +11,10 @@ pub struct Mailer {
 impl Mailer {
     pub fn new() -> Self {
         let host = env::var("SMTP_HOST").expect("SMTP_HOST must be set");
-        let port = env::var("SMTP_PORT").expect("SMTP_PORT must be set").parse().expect("SMTP_PORT must be a number");
+        let port = env::var("SMTP_PORT")
+            .expect("SMTP_PORT must be set")
+            .parse()
+            .expect("SMTP_PORT must be a number");
         let user = env::var("SMTP_USER").expect("SMTP_USER must be set");
         let pass = env::var("SMTP_PASS").expect("SMTP_PASS must be set");
         let from = env::var("SMTP_FROM").expect("SMTP_FROM must be set");
@@ -19,7 +22,7 @@ impl Mailer {
         let creds = Credentials::new(user, pass);
 
         // For local development and internal VPS communication, we might have self-signed certificates.
-        // We use Tls::Required but can disable certificate verification if needed, 
+        // We use Tls::Required but can disable certificate verification if needed,
         // or just use Tls::None if on localhost.
         let transport = if host == "127.0.0.1" || host == "localhost" {
             SmtpTransport::builder_dangerous(host)
@@ -32,14 +35,14 @@ impl Mailer {
                 .unwrap()
                 .port(port)
                 .credentials(creds)
-                // Relax certificate verification for this specific setup where mail.ubucknepal.com 
+                // Relax certificate verification for this specific setup where mail.ubucknepal.com
                 // certificate might have issues when accessed via STARTTLS from the same machine.
                 .tls(lettre::transport::smtp::client::Tls::Required(
                     lettre::transport::smtp::client::TlsParameters::builder(host)
                         .dangerous_accept_invalid_certs(true)
                         .dangerous_accept_invalid_hostnames(true)
                         .build()
-                        .unwrap()
+                        .unwrap(),
                 ))
                 .build()
         };
@@ -147,14 +150,21 @@ impl Mailer {
             title, content
         );
 
-        println!("[MAILER] Starting broadcast to {} recipients", to_list.len());
+        println!(
+            "[MAILER] Starting broadcast to {} recipients",
+            to_list.len()
+        );
         for (i, to) in to_list.iter().enumerate() {
             if let Err(e) = self.send_email(to, subject, &body) {
-                eprintln!("[MAILER] Broadcast failed for recipient {} ({}): {:?}", i+1, to, e);
+                eprintln!(
+                    "[MAILER] Broadcast failed for recipient {} ({}): {:?}",
+                    i + 1,
+                    to,
+                    e
+                );
             }
         }
         println!("[MAILER] Broadcast complete");
         Ok(())
     }
-
 }

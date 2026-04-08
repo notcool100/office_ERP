@@ -1,4 +1,4 @@
-use sqlx::{Pool, Postgres, postgres::PgPoolOptions, MySql, mysql::MySqlPoolOptions};
+use sqlx::{MySql, Pool, Postgres, mysql::MySqlPoolOptions, postgres::PgPoolOptions};
 use std::env;
 
 pub type Db = Pool<Postgres>;
@@ -11,5 +11,8 @@ pub async fn init_pool() -> Result<Db, sqlx::Error> {
 
 pub async fn init_vmail_pool() -> Result<VmailDb, sqlx::Error> {
     let url = env::var("VMAIL_DATABASE_URL").expect("VMAIL_DATABASE_URL not set");
-    MySqlPoolOptions::new().max_connections(5).connect(&url).await
+    MySqlPoolOptions::new()
+        .max_connections(5)
+        .connect(&url)
+        .await
 }

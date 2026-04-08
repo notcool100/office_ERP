@@ -5,10 +5,9 @@ use crate::api::{
     calendar::routes::calendar_routes, department::routes::department_routes,
     employee::routes::employee_routes, home::handlers::health_check_handler,
     intern::routes::intern_routes, leave::routes::leave_routes,
-    navigation::routes::navigation_routes, permissions::routes::permissions_routes,
-    person::routes::person_routes, position::routes::position_routes,
-    project::routes::project_routes, user::routes::user_routes,
-    messaging::routes::messaging_routes,
+    messaging::routes::messaging_routes, navigation::routes::navigation_routes,
+    permissions::routes::permissions_routes, person::routes::person_routes,
+    position::routes::position_routes, project::routes::project_routes, user::routes::user_routes,
 };
 use crate::middlewares::rbac;
 
@@ -62,9 +61,9 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
         .route("/ws/messaging/{channel_id}", get(crate::ws::ws_handler))
         .route(
             "/ws/notifications",
-            get(crate::ws::notification_ws_handler).layer(
-                axum::middleware::from_fn(crate::middlewares::auth::authenticate),
-            ),
+            get(crate::ws::notification_ws_handler).layer(axum::middleware::from_fn(
+                crate::middlewares::auth::authenticate,
+            )),
         )
         .with_state(hub);
 

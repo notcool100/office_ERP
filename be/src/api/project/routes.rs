@@ -20,4 +20,35 @@ pub fn project_routes() -> Router {
             "/{id}/cards/{card_id}",
             delete(handlers::delete_card_handler),
         )
+        .route(
+            "/{id}/cards/{card_id}/comments",
+            get(handlers::list_card_comments_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/comments",
+            post(handlers::create_card_comment_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/attachments",
+            get(handlers::list_card_attachments_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/attachments",
+            post(handlers::upload_card_attachment_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/attachments/{attachment_id}",
+            get(handlers::download_card_attachment_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/history",
+            get(handlers::list_card_history_handler),
+        )
+        .route("/{id}/sprints", get(handlers::list_sprints_handler))
+        .route("/{id}/sprints", post(handlers::create_sprint_handler))
+        .route("/{id}/sprints/{sprint_id}", put(handlers::update_sprint_handler))
+        .route(
+            "/{id}/sprints/{sprint_id}",
+            delete(handlers::delete_sprint_handler),
+        )
 }

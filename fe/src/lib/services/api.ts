@@ -114,6 +114,8 @@ function logout() {
 export const api = {
     get: (url: string, options?: RequestOptions) => customFetch(url, { ...options, method: 'GET' }),
     post: (url: string, body: any, options?: RequestOptions) => customFetch(url, { ...options, method: 'POST', body: JSON.stringify(body), headers: { ...options?.headers, 'Content-Type': 'application/json' } }),
+    postForm: (url: string, formData: FormData, options?: RequestOptions) =>
+        customFetch(url, { ...options, method: 'POST', body: formData }),
     put: (url: string, body: any, options?: RequestOptions) => customFetch(url, { ...options, method: 'PUT', body: JSON.stringify(body), headers: { ...options?.headers, 'Content-Type': 'application/json' } }),
     delete: (url: string, options?: RequestOptions) => customFetch(url, { ...options, method: 'DELETE' })
 };

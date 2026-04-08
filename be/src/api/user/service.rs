@@ -1,5 +1,8 @@
 use crate::{
-    api::{auth::password::hash_password, user::{dto::CreateUserRequest, vmail::VmailService}},
+    api::{
+        auth::password::hash_password,
+        user::{dto::CreateUserRequest, vmail::VmailService},
+    },
     db::{Db, VmailDb},
     models::user::User,
 };
@@ -70,7 +73,10 @@ pub async fn create_user(db: &Db, vmail_db: &VmailDb, req: CreateUserRequest) ->
 
     // Create mailbox if email is in @ubucknepal.com domain
     if user.email.ends_with("@ubucknepal.com") {
-        if let Err(e) = VmailService::create_mailbox(vmail_db, &user.email, &req.password, &user.user_name).await {
+        if let Err(e) =
+            VmailService::create_mailbox(vmail_db, &user.email, &req.password, &user.user_name)
+                .await
+        {
             tracing::error!("Failed to create mailbox for {}: {}", user.email, e);
         } else {
             tracing::info!("Successfully created mailbox for {}", user.email);
@@ -91,7 +97,11 @@ pub async fn create_user(db: &Db, vmail_db: &VmailDb, req: CreateUserRequest) ->
 
         match send_result {
             Ok(Ok(())) => {}
-            Ok(Err(e)) => tracing::error!("Failed to send welcome email to {}: {}", user_name_for_log, e),
+            Ok(Err(e)) => tracing::error!(
+                "Failed to send welcome email to {}: {}",
+                user_name_for_log,
+                e
+            ),
             Err(e) => tracing::error!("Welcome email task panicked: {}", e),
         }
     });

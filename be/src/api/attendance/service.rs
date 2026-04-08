@@ -14,9 +14,7 @@ use uuid::Uuid;
 
 pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse> {
     let now_utc = Utc::now();
-    let today = now_utc
-        .with_timezone(&nepal_offset())
-        .date_naive();
+    let today = now_utc.with_timezone(&nepal_offset()).date_naive();
 
     // Lookup employee UUID from string code
     let employee_uuid =
@@ -88,9 +86,7 @@ pub async fn check_out(
     req: CheckOutRequest,
 ) -> Result<AttendanceResponse> {
     let now_utc = Utc::now();
-    let today = now_utc
-        .with_timezone(&nepal_offset())
-        .date_naive();
+    let today = now_utc.with_timezone(&nepal_offset()).date_naive();
 
     // Lookup employee UUID from string code
     let employee_uuid =
@@ -298,6 +294,5 @@ fn map_attendance_to_response(att: AttendanceWithEmployee) -> AttendanceResponse
 
 fn nepal_offset() -> FixedOffset {
     // Nepal Standard Time (UTC+05:45)
-    FixedOffset::east_opt(5 * 3600 + 45 * 60)
-        .expect("Nepal UTC offset should be valid")
+    FixedOffset::east_opt(5 * 3600 + 45 * 60).expect("Nepal UTC offset should be valid")
 }

@@ -96,10 +96,7 @@ pub async fn get_employee(db: &Db, id: Uuid) -> Result<EmployeeResponse> {
     Ok(map_employee_to_response(employee))
 }
 
-pub async fn get_employee_by_person_id(
-    db: &Db,
-    person_id: Uuid,
-) -> Result<EmployeeResponse> {
+pub async fn get_employee_by_person_id(db: &Db, person_id: Uuid) -> Result<EmployeeResponse> {
     let employee = sqlx::query_as::<_, EmployeeWithPerson>(
         r#"
         SELECT e.id, e.employee_id, e.person_id, 
