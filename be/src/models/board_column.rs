@@ -8,6 +8,7 @@ pub struct BoardColumn {
     pub id: Uuid,
     pub board_id: Uuid,
     pub name: String,
+    pub is_done: bool,
     pub display_order: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,

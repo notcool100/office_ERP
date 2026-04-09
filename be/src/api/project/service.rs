@@ -57,6 +57,10 @@ pub struct CardWithAssignee {
     pub card_key: String,
     pub title: String,
     pub description: Option<String>,
+    pub card_type: String,
+    pub parent_id: Option<Uuid>,
+    pub parent_card_key: Option<String>,
+    pub is_migrated: bool,
     pub sprint_name: Option<String>,
     pub priority: String,
     pub assignee_id: Option<Uuid>,
@@ -79,6 +83,19 @@ pub struct SprintInfo {
     pub status: String,
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct CardLinkWithDetails {
+    pub id: Uuid,
+    pub source_card_id: Uuid,
+    pub target_card_id: Uuid,
+    pub source_card_key: String,
+    pub target_card_key: String,
+    pub source_title: String,
+    pub target_title: String,
+    pub link_type: String,
+    pub created_at: chrono::NaiveDateTime,
 }
 
 #[derive(sqlx::FromRow)]
@@ -425,11 +442,13 @@ pub async fn list_cards(
     let mut sql = String::from(
         r#"
         SELECT c.id, c.project_id, c.column_id, c.sequence_no, c.card_key,
-               c.title, c.description, c.sprint_name, c.priority, c.assignee_id,
+               c.title, c.description, c.card_type, c.parent_id, pc.card_key as parent_card_key, c.is_migrated,
+               c.sprint_name, c.priority, c.assignee_id,
                u.user_name as assignee_name, c.due_date, c.display_order,
                c.created_at, c.updated_at, c.sprint_id
         FROM cards c
         LEFT JOIN users u ON u.id = c.assignee_id
+        LEFT JOIN cards pc ON pc.id = c.parent_id
         WHERE c.project_id = $1
         "#,
     );
@@ -441,7 +460,6 @@ pub async fn list_cards(
     }
     if query.sprint_id.is_some() {
         sql.push_str(&format!(" AND c.sprint_id = ${}", bind_index));
-        bind_index += 1;
     }
 
     sql.push_str(" ORDER BY c.display_order, c.sequence_no, c.created_at");
@@ -596,7 +614,11 @@ pub async fn create_card(
     let priority = normalize_priority(dto.priority.as_deref())?;
     let sprint_name = normalize_optional_text(dto.sprint_name.as_deref(), 100);
     let description = normalize_optional_text(dto.description.as_deref(), 20_000);
+    let card_type = dto.card_type.unwrap_or_else(|| "task".to_string()).trim().to_lowercase();
+    let parent_id = dto.parent_id;
     let now = Utc::now().naive_utc();
+
+    validate_card_hierarchy(pool, project_id, &card_type, parent_id).await?;
 
     let mut tx = pool.begin().await?;
     let project_name = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
@@ -612,18 +634,21 @@ pub async fn create_card(
         WITH new_card AS (
             INSERT INTO cards (
                 project_id, column_id, sequence_no, card_key, title, description,
+                card_type, parent_id, is_migrated,
                 sprint_name, priority, assignee_id, due_date, display_order,
                 created_at, updated_at, sprint_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, $9, $10, $11, $12, $13, $14, $14, $15)
             RETURNING *
         )
         SELECT nc.id, nc.project_id, nc.column_id, nc.sequence_no, nc.card_key,
-               nc.title, nc.description, nc.sprint_name, nc.priority,
+               nc.title, nc.description, nc.card_type, nc.parent_id, pc.card_key as parent_card_key, nc.is_migrated,
+               nc.sprint_name, nc.priority,
                nc.assignee_id, u.user_name as assignee_name, nc.due_date,
                nc.display_order, nc.created_at, nc.updated_at, nc.sprint_id
         FROM new_card nc
         LEFT JOIN users u ON u.id = nc.assignee_id
+        LEFT JOIN cards pc ON pc.id = nc.parent_id
         "#,
     )
     .bind(project_id)
@@ -632,6 +657,8 @@ pub async fn create_card(
     .bind(&card_key)
     .bind(title)
     .bind(description)
+    .bind(card_type)
+    .bind(parent_id)
     .bind(sprint_name)
     .bind(priority)
     .bind(dto.assignee_id)
@@ -718,6 +745,24 @@ pub async fn update_card(
         Some(value) => Some(normalize_priority(Some(value))?),
         None => None,
     };
+    
+    let card_type = match dto.card_type.as_deref() {
+        Some(val) => val.trim().to_lowercase(),
+        None => existing.card_type.clone()
+    };
+    
+    let parent_id = match dto.parent_id {
+        Some(id) => Some(id), 
+        None => existing.parent_id
+    };
+
+    if existing.card_type != card_type || existing.parent_id != parent_id {
+        validate_card_hierarchy(pool, project_id, &card_type, parent_id).await?;
+    }
+    
+    if existing.column_id != resolved_column_id {
+        check_completion_rules(pool, project_id, card_id, &card_type, resolved_column_id).await?;
+    }
 
     let card = sqlx::query_as::<_, CardWithAssignee>(
         r#"
@@ -727,27 +772,33 @@ pub async fn update_card(
                 title = COALESCE($2, title),
                 description = COALESCE($3, description),
                 sprint_name = COALESCE($4, sprint_name),
-                priority = COALESCE($5, priority),
-                assignee_id = COALESCE($6, assignee_id),
-                due_date = COALESCE($7, due_date),
-                display_order = COALESCE($8, display_order),
-                updated_at = $9,
-                sprint_id = COALESCE($12, sprint_id)
-            WHERE id = $10 AND project_id = $11
+                card_type = COALESCE($5, card_type),
+                parent_id = COALESCE($6, parent_id),
+                priority = COALESCE($7, priority),
+                assignee_id = COALESCE($8, assignee_id),
+                due_date = COALESCE($9, due_date),
+                display_order = COALESCE($10, display_order),
+                updated_at = $11,
+                sprint_id = COALESCE($14, sprint_id)
+            WHERE id = $12 AND project_id = $13
             RETURNING *
         )
         SELECT u.id, u.project_id, u.column_id, u.sequence_no, u.card_key,
-               u.title, u.description, u.sprint_name, u.priority, u.assignee_id,
+               u.title, u.description, u.card_type, u.parent_id, pc.card_key as parent_card_key, u.is_migrated,
+               u.sprint_name, u.priority, u.assignee_id,
                usr.user_name as assignee_name, u.due_date,
                u.display_order, u.created_at, u.updated_at, u.sprint_id
         FROM updated u
         LEFT JOIN users usr ON usr.id = u.assignee_id
+        LEFT JOIN cards pc ON pc.id = u.parent_id
         "#,
     )
     .bind(resolved_column_id)
     .bind(dto.title)
     .bind(description)
     .bind(sprint_name)
+    .bind(dto.card_type)
+    .bind(dto.parent_id)
     .bind(priority)
     .bind(dto.assignee_id)
     .bind(dto.due_date)
@@ -1112,7 +1163,7 @@ pub async fn list_card_history(
     Ok(activities)
 }
 
-const MAX_ATTACHMENT_SIZE_BYTES: usize = 5 * 1024 * 1024;
+const MAX_ATTACHMENT_SIZE_BYTES: usize = 25 * 1024 * 1024;
 
 fn normalize_priority(priority: Option<&str>) -> Result<String, ProjectError> {
     let value = priority.unwrap_or("medium").trim().to_ascii_lowercase();
@@ -1195,11 +1246,13 @@ async fn get_card_with_assignee(
     let card = sqlx::query_as::<_, CardWithAssignee>(
         r#"
         SELECT c.id, c.project_id, c.column_id, c.sequence_no, c.card_key,
-               c.title, c.description, c.sprint_name, c.priority, c.assignee_id,
+               c.title, c.description, c.card_type, c.parent_id, pc.card_key as parent_card_key, c.is_migrated,
+               c.sprint_name, c.priority, c.assignee_id,
                u.user_name as assignee_name, c.due_date, c.display_order,
                c.created_at, c.updated_at, c.sprint_id
         FROM cards c
         LEFT JOIN users u ON u.id = c.assignee_id
+        LEFT JOIN cards pc ON pc.id = c.parent_id
         WHERE c.project_id = $1 AND c.id = $2
         "#,
     )
@@ -1454,4 +1507,204 @@ fn map_unique_error(err: sqlx::Error, message: &str) -> ProjectError {
         return ProjectError::BadRequest(message.to_string());
     }
     ProjectError::Database(err)
+}
+
+async fn validate_card_hierarchy(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_type: &str,
+    parent_id: Option<Uuid>,
+) -> Result<(), ProjectError> {
+    if card_type == "epic" && parent_id.is_some() {
+        return Err(ProjectError::BadRequest("Epic cannot have a parent".to_string()));
+    }
+    
+    if card_type != "epic" && parent_id.is_none() {
+        return Err(ProjectError::BadRequest(format!("{} must have a parent", card_type)));
+    }
+    
+    if let Some(pid) = parent_id {
+        let parent_type = sqlx::query_scalar::<_, String>("SELECT card_type FROM cards WHERE id = $1 AND project_id = $2")
+            .bind(pid)
+            .bind(project_id)
+            .fetch_optional(pool)
+            .await?
+            .ok_or(ProjectError::BadRequest("Parent card not found".to_string()))?;
+            
+        match card_type {
+            "story" => if parent_type != "epic" { return Err(ProjectError::BadRequest("Story parent must be an Epic".to_string())); },
+            "task" => if parent_type != "story" { return Err(ProjectError::BadRequest("Task parent must be a Story".to_string())); },
+            "bug" => if parent_type != "story" && parent_type != "task" { return Err(ProjectError::BadRequest("Bug parent must be a Story or Task".to_string())); },
+            _ => (),
+        }
+    }
+    
+    Ok(())
+}
+
+async fn check_completion_rules(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    card_type: &str,
+    column_id: Option<Uuid>,
+) -> Result<(), ProjectError> {
+    let Some(col_id) = column_id else { return Ok(()) };
+    let is_done = sqlx::query_scalar::<_, bool>("SELECT is_done FROM board_columns WHERE id = $1")
+        .bind(col_id)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or(false);
+        
+    if !is_done { return Ok(()) };
+    
+    if card_type == "epic" {
+        let incomplete_stories = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT count(c.id) FROM cards c 
+            LEFT JOIN board_columns bc ON c.column_id = bc.id 
+            WHERE c.parent_id = $1 AND (bc.is_done = false OR c.column_id IS NULL) AND c.project_id = $2
+            "#
+        )
+        .bind(card_id)
+        .bind(project_id)
+        .fetch_one(pool)
+        .await?;
+        if incomplete_stories > 0 {
+            return Err(ProjectError::BadRequest("Cannot complete Epic because it has incomplete Stories".to_string()));
+        }
+    } else if card_type == "story" {
+        let incomplete_children = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT count(c.id) FROM cards c
+            LEFT JOIN board_columns bc ON c.column_id = bc.id
+            WHERE (c.parent_id = $1 OR c.parent_id IN (SELECT id FROM cards WHERE parent_id = $1 AND card_type = 'task' AND project_id = $2))
+              AND (bc.is_done = false OR c.column_id IS NULL) AND c.project_id = $2
+            "#
+        )
+        .bind(card_id)
+        .bind(project_id)
+        .fetch_one(pool)
+        .await?;
+        if incomplete_children > 0 {
+            return Err(ProjectError::BadRequest("Cannot complete Story because it has incomplete Tasks or Bugs".to_string()));
+        }
+    }
+    
+    Ok(())
+}
+
+pub async fn list_card_links(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+) -> Result<Vec<CardLinkWithDetails>, ProjectError> {
+    ensure_member(pool, project_id, user).await?;
+
+    let links = sqlx::query_as::<_, CardLinkWithDetails>(
+        r#"
+        SELECT cl.id, cl.source_card_id, cl.target_card_id, 
+               sc.card_key as source_card_key, tc.card_key as target_card_key,
+               sc.title as source_title, tc.title as target_title,
+               cl.link_type, cl.created_at
+        FROM card_links cl
+        JOIN cards sc ON sc.id = cl.source_card_id
+        JOIN cards tc ON tc.id = cl.target_card_id
+        WHERE (cl.source_card_id = $1 OR cl.target_card_id = $1)
+          AND sc.project_id = $2 AND tc.project_id = $2
+        ORDER BY cl.created_at DESC
+        "#,
+    )
+    .bind(card_id)
+    .bind(project_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(links)
+}
+
+pub async fn create_card_link(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    user: &User,
+    dto: crate::api::project::dto::CreateCardLinkDto,
+) -> Result<CardLinkWithDetails, ProjectError> {
+    ensure_write_role(pool, project_id, user).await?;
+
+    if card_id == dto.target_card_id {
+        return Err(ProjectError::BadRequest("Cannot link card to itself".to_string()));
+    }
+
+    let link_type = dto.link_type.trim().to_lowercase();
+    if !["depends_on", "relates_to"].contains(&link_type.as_str()) {
+        return Err(ProjectError::BadRequest("Invalid link type".to_string()));
+    }
+
+    ensure_card_exists(pool, project_id, dto.target_card_id).await?;
+
+    let link_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        INSERT INTO card_links (source_card_id, target_card_id, link_type)
+        VALUES ($1, $2, $3)
+        RETURNING id
+        "#,
+    )
+    .bind(card_id)
+    .bind(dto.target_card_id)
+    .bind(&link_type)
+    .fetch_one(pool)
+    .await
+    .map_err(|err| map_unique_error(err, "Link already exists"))?;
+
+    let link = sqlx::query_as::<_, CardLinkWithDetails>(
+        r#"
+        SELECT cl.id, cl.source_card_id, cl.target_card_id, 
+               sc.card_key as source_card_key, tc.card_key as target_card_key,
+               sc.title as source_title, tc.title as target_title,
+               cl.link_type, cl.created_at
+        FROM card_links cl
+        JOIN cards sc ON sc.id = cl.source_card_id
+        JOIN cards tc ON tc.id = cl.target_card_id
+        WHERE cl.id = $1
+        "#,
+    )
+    .bind(link_id)
+    .fetch_one(pool)
+    .await?;
+
+    log_card_activity(
+        pool, project_id, card_id, Some(user.id), "linked",
+        format!("Linked to {} ({})", link.target_card_key, link_type), None
+    ).await?;
+
+    Ok(link)
+}
+
+pub async fn delete_card_link(
+    pool: &PgPool,
+    project_id: Uuid,
+    card_id: Uuid,
+    link_id: Uuid,
+    user: &User,
+) -> Result<(), ProjectError> {
+    ensure_write_role(pool, project_id, user).await?;
+
+    let result = sqlx::query("DELETE FROM card_links WHERE id = $1 AND (source_card_id = $2 OR target_card_id = $2)")
+        .bind(link_id)
+        .bind(card_id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ProjectError::NotFound);
+    }
+    
+    log_card_activity(
+        pool, project_id, card_id, Some(user.id), "link_removed",
+        "Removed card link".to_string(), None
+    ).await?;
+
+    Ok(())
 }

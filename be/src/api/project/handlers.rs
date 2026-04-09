@@ -233,6 +233,7 @@ pub async fn get_project_board_handler(
                 id: col.id,
                 board_id: col.board_id,
                 name: col.name,
+                is_done: col.is_done,
                 display_order: col.display_order,
                 created_at: col.created_at,
                 updated_at: col.updated_at,
@@ -269,6 +270,10 @@ pub async fn list_cards_handler(
             card_key: card.card_key,
             title: card.title,
             description: card.description,
+            card_type: card.card_type,
+            parent_id: card.parent_id,
+            parent_card_key: card.parent_card_key,
+            is_migrated: card.is_migrated,
             sprint_name: card.sprint_name,
             priority: card.priority,
             assignee_id: card.assignee_id,
@@ -309,6 +314,10 @@ pub async fn create_card_handler(
         card_key: card.card_key,
         title: card.title,
         description: card.description,
+        card_type: card.card_type,
+        parent_id: card.parent_id,
+        parent_card_key: card.parent_card_key,
+        is_migrated: card.is_migrated,
         sprint_name: card.sprint_name,
         priority: card.priority,
         assignee_id: card.assignee_id,
@@ -442,6 +451,10 @@ pub async fn update_card_handler(
         card_key: card.card_key,
         title: card.title,
         description: card.description,
+        card_type: card.card_type,
+        parent_id: card.parent_id,
+        parent_card_key: card.parent_card_key,
+        is_migrated: card.is_migrated,
         sprint_name: card.sprint_name,
         priority: card.priority,
         assignee_id: card.assignee_id,
@@ -697,3 +710,80 @@ pub async fn list_card_history_handler(
 
     Ok((StatusCode::OK, Json(json!(response))))
 }
+
+pub async fn list_card_links_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+    Path((id, card_id)): Path<(Uuid, Uuid)>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(user_id = %user.id, project_id = %id, card_id = %card_id, "list_card_links");
+    let links = service::list_card_links(&db, id, card_id, &user)
+        .await
+        .map_err(map_error)?;
+
+    let response: Vec<CardLinkResponseDto> = links
+        .into_iter()
+        .map(|link| CardLinkResponseDto {
+            id: link.id,
+            source_card_id: link.source_card_id,
+            target_card_id: link.target_card_id,
+            source_card_key: link.source_card_key,
+            target_card_key: link.target_card_key,
+            source_title: link.source_title,
+            target_title: link.target_title,
+            link_type: link.link_type,
+            created_at: link.created_at,
+        })
+        .collect();
+
+    Ok((StatusCode::OK, Json(json!(response))))
+}
+
+pub async fn create_card_link_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+    Path((id, card_id)): Path<(Uuid, Uuid)>,
+    Json(payload): Json<CreateCardLinkDto>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(user_id = %user.id, project_id = %id, card_id = %card_id, "create_card_link");
+    let link = service::create_card_link(&db, id, card_id, &user, payload)
+        .await
+        .map_err(map_error)?;
+
+    let response = CardLinkResponseDto {
+        id: link.id,
+        source_card_id: link.source_card_id,
+        target_card_id: link.target_card_id,
+        source_card_key: link.source_card_key,
+        target_card_key: link.target_card_key,
+        source_title: link.source_title,
+        target_title: link.target_title,
+        link_type: link.link_type,
+        created_at: link.created_at,
+    };
+
+    Ok((StatusCode::CREATED, Json(json!(response))))
+}
+
+pub async fn delete_card_link_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+    Path((id, card_id, link_id)): Path<(Uuid, Uuid, Uuid)>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    tracing::info!(
+        user_id = %user.id,
+        project_id = %id,
+        card_id = %card_id,
+        link_id = %link_id,
+        "delete_card_link"
+    );
+    service::delete_card_link(&db, id, card_id, link_id, &user)
+        .await
+        .map_err(map_error)?;
+
+    Ok((
+        StatusCode::OK,
+        Json(json!({ "message": "Link deleted successfully" })),
+    ))
+}
+

@@ -36,6 +36,7 @@ export interface BoardColumn {
     id: string;
     board_id: string;
     name: string;
+    is_done: boolean;
     display_order: number;
     created_at: string;
     updated_at: string;
@@ -60,6 +61,10 @@ export interface Card {
     description: string | null;
     sprint_name: string | null;
     priority: string;
+    card_type: string;
+    parent_id: string | null;
+    parent_card_key: string | null;
+    is_migrated: boolean;
     assignee_id: string | null;
     assignee_name?: string | null;
     due_date: string | null;
@@ -102,6 +107,8 @@ export interface CreateCardDto {
     description?: string;
     sprint_name?: string;
     priority?: string;
+    card_type?: string;
+    parent_id?: string;
     assignee_id?: string;
     due_date?: string;
     display_order?: number;
@@ -114,6 +121,8 @@ export interface UpdateCardDto {
     description?: string;
     sprint_name?: string;
     priority?: string;
+    card_type?: string;
+    parent_id?: string;
     assignee_id?: string;
     due_date?: string;
     display_order?: number;
@@ -156,4 +165,21 @@ export interface CardActivity {
     action_type: string;
     description: string;
     created_at: string;
+}
+
+export interface CardLink {
+    id: string;
+    source_card_id: string;
+    target_card_id: string;
+    source_card_key: string;
+    target_card_key: string;
+    source_title: string;
+    target_title: string;
+    link_type: string;
+    created_at: string;
+}
+
+export interface CreateCardLinkDto {
+    target_card_id: string;
+    link_type: string;
 }

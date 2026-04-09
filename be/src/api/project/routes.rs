@@ -44,6 +44,18 @@ pub fn project_routes() -> Router {
             "/{id}/cards/{card_id}/history",
             get(handlers::list_card_history_handler),
         )
+        .route(
+            "/{id}/cards/{card_id}/links",
+            get(handlers::list_card_links_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/links",
+            post(handlers::create_card_link_handler),
+        )
+        .route(
+            "/{id}/cards/{card_id}/links/{link_id}",
+            delete(handlers::delete_card_link_handler),
+        )
         .route("/{id}/sprints", get(handlers::list_sprints_handler))
         .route("/{id}/sprints", post(handlers::create_sprint_handler))
         .route("/{id}/sprints/{sprint_id}", put(handlers::update_sprint_handler))

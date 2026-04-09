@@ -1,6 +1,9 @@
 use be::{build_routes, init_pool, init_vmail_pool, middleware};
 
-use axum::http::{HeaderValue, header::CACHE_CONTROL};
+use axum::{
+    extract::DefaultBodyLimit,
+    http::{HeaderValue, header::CACHE_CONTROL},
+};
 use dotenvy::dotenv;
 use std::net::SocketAddr;
 use tower_http::{
@@ -60,6 +63,7 @@ async fn main() {
                 "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
             ),
         ))
+        .layer(DefaultBodyLimit::disable())
         .layer(TraceLayer::new_for_http());
 
     let port: u16 = std::env::var("PORT")

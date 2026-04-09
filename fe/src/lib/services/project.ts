@@ -15,6 +15,8 @@ import type {
     Sprint,
     CreateSprintDto,
     UpdateSprintDto,
+    CardLink,
+    CreateCardLinkDto,
 } from '$lib/types/project';
 
 export const projectService = {
@@ -196,5 +198,29 @@ export const projectService = {
     async deleteSprint(projectId: string, sprintId: string): Promise<void> {
         const response = await api.delete(`/projects/${projectId}/sprints/${sprintId}`);
         if (!response.ok) throw new Error('Failed to delete sprint');
+    },
+
+    async listCardLinks(projectId: string, cardId: string): Promise<CardLink[]> {
+        const response = await api.get(`/projects/${projectId}/cards/${cardId}/links`);
+        if (!response.ok) throw new Error('Failed to fetch card links');
+        return await response.json();
+    },
+
+    async createCardLink(
+        projectId: string,
+        cardId: string,
+        data: CreateCardLinkDto,
+    ): Promise<CardLink> {
+        const response = await api.post(`/projects/${projectId}/cards/${cardId}/links`, data);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to create card link');
+        }
+        return await response.json();
+    },
+
+    async deleteCardLink(projectId: string, cardId: string, linkId: string): Promise<void> {
+        const response = await api.delete(`/projects/${projectId}/cards/${cardId}/links/${linkId}`);
+        if (!response.ok) throw new Error('Failed to delete card link');
     },
 };

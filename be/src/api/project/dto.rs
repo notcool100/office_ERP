@@ -51,6 +51,7 @@ pub struct BoardColumnResponseDto {
     pub id: Uuid,
     pub board_id: Uuid,
     pub name: String,
+    pub is_done: bool,
     pub display_order: i32,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -72,6 +73,8 @@ pub struct CreateCardDto {
     pub title: String,
     pub description: Option<String>,
     pub sprint_name: Option<String>,
+    pub card_type: Option<String>,
+    pub parent_id: Option<Uuid>,
     pub priority: Option<String>,
     pub assignee_id: Option<Uuid>,
     pub due_date: Option<NaiveDate>,
@@ -85,6 +88,8 @@ pub struct UpdateCardDto {
     pub title: Option<String>,
     pub description: Option<String>,
     pub sprint_name: Option<String>,
+    pub card_type: Option<String>,
+    pub parent_id: Option<Uuid>,
     pub priority: Option<String>,
     pub assignee_id: Option<Uuid>,
     pub due_date: Option<NaiveDate>,
@@ -101,6 +106,10 @@ pub struct CardResponseDto {
     pub card_key: String,
     pub title: String,
     pub description: Option<String>,
+    pub card_type: String,
+    pub parent_id: Option<Uuid>,
+    pub parent_card_key: Option<String>,
+    pub is_migrated: bool,
     pub sprint_name: Option<String>,
     pub priority: String,
     pub assignee_id: Option<Uuid>,
@@ -187,5 +196,24 @@ pub struct CardActivityResponseDto {
     pub actor_name: Option<String>,
     pub action_type: String,
     pub description: String,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateCardLinkDto {
+    pub target_card_id: Uuid,
+    pub link_type: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CardLinkResponseDto {
+    pub id: Uuid,
+    pub source_card_id: Uuid,
+    pub target_card_id: Uuid,
+    pub source_card_key: String,
+    pub target_card_key: String,
+    pub source_title: String,
+    pub target_title: String,
+    pub link_type: String,
     pub created_at: NaiveDateTime,
 }
