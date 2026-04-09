@@ -43,7 +43,12 @@ stages:
         echo "Listing current directory:"
         ls -F
         
+        echo "Memory Status:"
+        free -m || true
+        
         echo "Running cargo build --release..."
+        # Limit parallel jobs to prevent OOM crashes (Killed signal)
+        export CARGO_BUILD_JOBS=2
         cargo build --release --verbose
         
         echo "Checking for binary..."
