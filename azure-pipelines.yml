@@ -21,8 +21,8 @@ stages:
         echo "=== Installing Rust ==="
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         
-        . "$HOME/.cargo/env"
-        echo "##vso[task.prependpath]$HOME/.cargo/bin"
+        . "$HOME/.cargo/env" || . ~/.cargo/env
+        echo "##vso[task.prependpath]$(cd ~ && pwd)/.cargo/bin"
         
         rustc --version
         cargo --version
@@ -38,7 +38,7 @@ stages:
     - script: |
         set -e
 
-        . "$HOME/.cargo/env"
+        . "$HOME/.cargo/env" || . ~/.cargo/env
 
         echo "=== Building Backend ==="
         rustc --version
