@@ -21,7 +21,8 @@ stages:
         echo "=== Installing Rust ==="
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         
-        export PATH="$HOME/.cargo/bin:$PATH"
+        . "$HOME/.cargo/env"
+        echo "##vso[task.prependpath]$HOME/.cargo/bin"
         
         rustc --version
         cargo --version
@@ -37,7 +38,7 @@ stages:
     - script: |
         set -e
 
-        export PATH="$HOME/.cargo/bin:$PATH"
+        . "$HOME/.cargo/env"
 
         echo "=== Building Backend ==="
         rustc --version
@@ -174,7 +175,7 @@ stages:
     - script: |
         echo "=== Deploy Backend ==="
 
-        sudo systemctl stop ubuck-erp-backend || true
+        sudo systemctl stop office-be || true
 
         TARGET_DIR="/var/www/ubuck-erp/be"
         sudo mkdir -p $TARGET_DIR
@@ -184,17 +185,17 @@ stages:
         sudo chown -R www-data:www-data $TARGET_DIR
 
         sudo systemctl daemon-reload
-        sudo systemctl enable ubuck-erp-backend
-        sudo systemctl start ubuck-erp-backend
+        sudo systemctl enable office-be
+        sudo systemctl start office-be
 
-        sudo systemctl status ubuck-erp-backend --no-pager | head -10
+        sudo systemctl status office-be --no-pager | head -10
       displayName: "Deploy Backend"
 
     # Frontend Deploy
     - script: |
         echo "=== Deploy Frontend ==="
 
-        sudo systemctl stop ubuck-erp-frontend || true
+        sudo systemctl stop office-fe || true
 
         TARGET_DIR="/var/www/ubuck-erp/fe"
         sudo mkdir -p $TARGET_DIR
@@ -213,10 +214,10 @@ stages:
         sudo chown -R www-data:www-data $TARGET_DIR
 
         sudo systemctl daemon-reload
-        sudo systemctl enable ubuck-erp-frontend
-        sudo systemctl start ubuck-erp-frontend
+        sudo systemctl enable office-fe
+        sudo systemctl start office-fe
 
-        sudo systemctl status ubuck-erp-frontend --no-pager | head -10
+        sudo systemctl status office-fe --no-pager | head -10
       displayName: "Deploy Frontend"
 
     - script: |
