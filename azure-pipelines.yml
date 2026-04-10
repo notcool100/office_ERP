@@ -19,10 +19,14 @@ stages:
     steps:
     - script: |
         echo "=== Installing Rust ==="
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        
-        . "$HOME/.cargo/env" || . ~/.cargo/env
-        echo "##vso[task.prependpath]$(cd ~ && pwd)/.cargo/bin"
+        export CARGO_HOME="$(Pipeline.Workspace)/.cargo"
+        export RUSTUP_HOME="$(Pipeline.Workspace)/.rustup"
+        export PATH="$CARGO_HOME/bin:$PATH"
+
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+
+        echo "##vso[task.setvariable variable=CARGO_HOME]$CARGO_HOME"
+        echo "##vso[task.prependpath]$CARGO_HOME/bin"
         
         rustc --version
         cargo --version
@@ -38,7 +42,7 @@ stages:
     - script: |
         set -e
 
-        . "$HOME/.cargo/env" || . ~/.cargo/env
+        export PATH="$CARGO_HOME/bin:$PATH"
 
         echo "=== Building Backend ==="
         rustc --version
