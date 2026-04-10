@@ -31,6 +31,29 @@ where
             count: None,
         }
     }
+
+    pub fn success(msg: impl Into<String>, data: T) -> Self {
+        Self {
+            success: true,
+            message: Some(msg.into()),
+            data: Some(data),
+            errors: vec![],
+            count: None,
+        }
+    }
+
+    pub fn error(code: impl Into<String>, msg: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            message: None,
+            data: None,
+            errors: vec![ErrorItem {
+                code: code.into(),
+                message: msg.into(),
+            }],
+            count: None,
+        }
+    }
 }
 
 #[derive(Serialize)]

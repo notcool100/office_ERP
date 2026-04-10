@@ -101,8 +101,7 @@ pub async fn list_interns(db: &Db, query: ListInternsQuery) -> Result<ListIntern
 
     let mut conditions: Vec<String> = vec!["1=1".to_string()];
     let mut count_query = "SELECT COUNT(*) FROM interns i".to_string();
-    let mut select_query = format!(
-        r#"
+    let mut select_query = r#"
         SELECT i.id, i.intern_id, i.person_id, 
                p.first_name, p.middle_name, p.last_name,
                pc.email, pc.phone,
@@ -113,8 +112,7 @@ pub async fn list_interns(db: &Db, query: ListInternsQuery) -> Result<ListIntern
         JOIN persons p ON p.id = i.person_id
         LEFT JOIN person_contacts pc ON pc.person_id = p.id
         WHERE 1=1
-        "#
-    );
+        "#.to_string();
 
     if query.department.is_some() {
         conditions.push("i.department = $3".to_string());

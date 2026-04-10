@@ -3,6 +3,7 @@ pub mod board;
 pub mod board_column;
 pub mod calendar_event;
 pub mod card;
+pub mod daily_log;
 pub mod department;
 pub mod employee;
 pub mod intern;

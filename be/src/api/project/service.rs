@@ -1,7 +1,7 @@
 use crate::{
     api::project::dto::{
-        AddProjectMemberDto, CreateCardCommentDto, CreateCardDto, CreateProjectDto, CreateSprintDto,
-        ListCardsQuery, UpdateCardDto, UpdateProjectDto, UpdateSprintDto,
+        AddProjectMemberDto, CreateCardCommentDto, CreateCardDto, CreateProjectDto,
+        CreateSprintDto, ListCardsQuery, UpdateCardDto, UpdateProjectDto, UpdateSprintDto,
     },
     models::{board::Board, board_column::BoardColumn, project::Project, user::User},
 };
@@ -509,7 +509,9 @@ pub async fn create_sprint(
 
     let name = dto.name.trim();
     if name.is_empty() {
-        return Err(ProjectError::BadRequest("Sprint name is required".to_string()));
+        return Err(ProjectError::BadRequest(
+            "Sprint name is required".to_string(),
+        ));
     }
 
     let now = Utc::now().naive_utc();
@@ -614,7 +616,11 @@ pub async fn create_card(
     let priority = normalize_priority(dto.priority.as_deref())?;
     let sprint_name = normalize_optional_text(dto.sprint_name.as_deref(), 100);
     let description = normalize_optional_text(dto.description.as_deref(), 20_000);
-    let card_type = dto.card_type.unwrap_or_else(|| "task".to_string()).trim().to_lowercase();
+    let card_type = dto
+        .card_type
+        .unwrap_or_else(|| "task".to_string())
+        .trim()
+        .to_lowercase();
     let parent_id = dto.parent_id;
     let now = Utc::now().naive_utc();
 
@@ -745,21 +751,21 @@ pub async fn update_card(
         Some(value) => Some(normalize_priority(Some(value))?),
         None => None,
     };
-    
+
     let card_type = match dto.card_type.as_deref() {
         Some(val) => val.trim().to_lowercase(),
-        None => existing.card_type.clone()
+        None => existing.card_type.clone(),
     };
-    
+
     let parent_id = match dto.parent_id {
-        Some(id) => Some(id), 
-        None => existing.parent_id
+        Some(id) => Some(id),
+        None => existing.parent_id,
     };
 
     if existing.card_type != card_type || existing.parent_id != parent_id {
         validate_card_hierarchy(pool, project_id, &card_type, parent_id).await?;
     }
-    
+
     if existing.column_id != resolved_column_id {
         check_completion_rules(pool, project_id, card_id, &card_type, resolved_column_id).await?;
     }
@@ -1516,29 +1522,56 @@ async fn validate_card_hierarchy(
     parent_id: Option<Uuid>,
 ) -> Result<(), ProjectError> {
     if card_type == "epic" && parent_id.is_some() {
-        return Err(ProjectError::BadRequest("Epic cannot have a parent".to_string()));
+        return Err(ProjectError::BadRequest(
+            "Epic cannot have a parent".to_string(),
+        ));
     }
-    
+
     if card_type != "epic" && parent_id.is_none() {
-        return Err(ProjectError::BadRequest(format!("{} must have a parent", card_type)));
+        return Err(ProjectError::BadRequest(format!(
+            "{} must have a parent",
+            card_type
+        )));
     }
-    
+
     if let Some(pid) = parent_id {
-        let parent_type = sqlx::query_scalar::<_, String>("SELECT card_type FROM cards WHERE id = $1 AND project_id = $2")
-            .bind(pid)
-            .bind(project_id)
-            .fetch_optional(pool)
-            .await?
-            .ok_or(ProjectError::BadRequest("Parent card not found".to_string()))?;
-            
+        let parent_type = sqlx::query_scalar::<_, String>(
+            "SELECT card_type FROM cards WHERE id = $1 AND project_id = $2",
+        )
+        .bind(pid)
+        .bind(project_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or(ProjectError::BadRequest(
+            "Parent card not found".to_string(),
+        ))?;
+
         match card_type {
-            "story" => if parent_type != "epic" { return Err(ProjectError::BadRequest("Story parent must be an Epic".to_string())); },
-            "task" => if parent_type != "story" { return Err(ProjectError::BadRequest("Task parent must be a Story".to_string())); },
-            "bug" => if parent_type != "story" && parent_type != "task" { return Err(ProjectError::BadRequest("Bug parent must be a Story or Task".to_string())); },
+            "story" => {
+                if parent_type != "epic" {
+                    return Err(ProjectError::BadRequest(
+                        "Story parent must be an Epic".to_string(),
+                    ));
+                }
+            }
+            "task" => {
+                if parent_type != "story" {
+                    return Err(ProjectError::BadRequest(
+                        "Task parent must be a Story".to_string(),
+                    ));
+                }
+            }
+            "bug" => {
+                if parent_type != "story" && parent_type != "task" {
+                    return Err(ProjectError::BadRequest(
+                        "Bug parent must be a Story or Task".to_string(),
+                    ));
+                }
+            }
             _ => (),
         }
     }
-    
+
     Ok(())
 }
 
@@ -1549,15 +1582,19 @@ async fn check_completion_rules(
     card_type: &str,
     column_id: Option<Uuid>,
 ) -> Result<(), ProjectError> {
-    let Some(col_id) = column_id else { return Ok(()) };
+    let Some(col_id) = column_id else {
+        return Ok(());
+    };
     let is_done = sqlx::query_scalar::<_, bool>("SELECT is_done FROM board_columns WHERE id = $1")
         .bind(col_id)
         .fetch_optional(pool)
         .await?
         .unwrap_or(false);
-        
-    if !is_done { return Ok(()) };
-    
+
+    if !is_done {
+        return Ok(());
+    };
+
     if card_type == "epic" {
         let incomplete_stories = sqlx::query_scalar::<_, i64>(
             r#"
@@ -1571,7 +1608,9 @@ async fn check_completion_rules(
         .fetch_one(pool)
         .await?;
         if incomplete_stories > 0 {
-            return Err(ProjectError::BadRequest("Cannot complete Epic because it has incomplete Stories".to_string()));
+            return Err(ProjectError::BadRequest(
+                "Cannot complete Epic because it has incomplete Stories".to_string(),
+            ));
         }
     } else if card_type == "story" {
         let incomplete_children = sqlx::query_scalar::<_, i64>(
@@ -1587,10 +1626,12 @@ async fn check_completion_rules(
         .fetch_one(pool)
         .await?;
         if incomplete_children > 0 {
-            return Err(ProjectError::BadRequest("Cannot complete Story because it has incomplete Tasks or Bugs".to_string()));
+            return Err(ProjectError::BadRequest(
+                "Cannot complete Story because it has incomplete Tasks or Bugs".to_string(),
+            ));
         }
     }
-    
+
     Ok(())
 }
 
@@ -1634,7 +1675,9 @@ pub async fn create_card_link(
     ensure_write_role(pool, project_id, user).await?;
 
     if card_id == dto.target_card_id {
-        return Err(ProjectError::BadRequest("Cannot link card to itself".to_string()));
+        return Err(ProjectError::BadRequest(
+            "Cannot link card to itself".to_string(),
+        ));
     }
 
     let link_type = dto.link_type.trim().to_lowercase();
@@ -1675,9 +1718,15 @@ pub async fn create_card_link(
     .await?;
 
     log_card_activity(
-        pool, project_id, card_id, Some(user.id), "linked",
-        format!("Linked to {} ({})", link.target_card_key, link_type), None
-    ).await?;
+        pool,
+        project_id,
+        card_id,
+        Some(user.id),
+        "linked",
+        format!("Linked to {} ({})", link.target_card_key, link_type),
+        None,
+    )
+    .await?;
 
     Ok(link)
 }
@@ -1691,20 +1740,28 @@ pub async fn delete_card_link(
 ) -> Result<(), ProjectError> {
     ensure_write_role(pool, project_id, user).await?;
 
-    let result = sqlx::query("DELETE FROM card_links WHERE id = $1 AND (source_card_id = $2 OR target_card_id = $2)")
-        .bind(link_id)
-        .bind(card_id)
-        .execute(pool)
-        .await?;
+    let result = sqlx::query(
+        "DELETE FROM card_links WHERE id = $1 AND (source_card_id = $2 OR target_card_id = $2)",
+    )
+    .bind(link_id)
+    .bind(card_id)
+    .execute(pool)
+    .await?;
 
     if result.rows_affected() == 0 {
         return Err(ProjectError::NotFound);
     }
-    
+
     log_card_activity(
-        pool, project_id, card_id, Some(user.id), "link_removed",
-        "Removed card link".to_string(), None
-    ).await?;
+        pool,
+        project_id,
+        card_id,
+        Some(user.id),
+        "link_removed",
+        "Removed card link".to_string(),
+        None,
+    )
+    .await?;
 
     Ok(())
 }

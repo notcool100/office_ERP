@@ -21,7 +21,7 @@ pub async fn create_navigation_item(
     .bind(&dto.name)
     .bind(&dto.path)
     .bind(&dto.icon)
-    .bind(&dto.parent_id)
+    .bind(dto.parent_id)
     .bind(dto.display_order.unwrap_or(0))
     .bind(Utc::now().naive_utc())
     .fetch_one(pool)
@@ -203,22 +203,19 @@ pub async fn get_user_navigation(
 
     // Second pass: build hierarchy
     for nav in &nav_with_perms {
-        if let Some(parent_id) = nav.parent_id {
-            if let Some(item) = items_map.remove(&nav.id) {
-                if let Some(parent) = items_map.get_mut(&parent_id) {
+        if let Some(parent_id) = nav.parent_id
+            && let Some(item) = items_map.remove(&nav.id)
+                && let Some(parent) = items_map.get_mut(&parent_id) {
                     parent.children.push(item);
                 }
-            }
-        }
     }
 
     // Collect root items
     for nav in &nav_with_perms {
-        if nav.parent_id.is_none() {
-            if let Some(item) = items_map.remove(&nav.id) {
+        if nav.parent_id.is_none()
+            && let Some(item) = items_map.remove(&nav.id) {
                 root_items.push(item);
             }
-        }
     }
 
     root_items.sort_by_key(|item| item.display_order);

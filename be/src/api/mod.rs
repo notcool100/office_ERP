@@ -1,6 +1,7 @@
 pub mod attendance;
 pub mod auth;
 pub mod calendar;
+pub mod daily_log;
 pub mod department;
 pub mod employee;
 pub mod home;

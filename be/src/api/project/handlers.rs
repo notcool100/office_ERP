@@ -786,4 +786,3 @@ pub async fn delete_card_link_handler(
         Json(json!({ "message": "Link deleted successfully" })),
     ))
 }
-

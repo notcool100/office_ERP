@@ -67,11 +67,7 @@ pub async fn list_persons(pool: &PgPool, query: ListPersonsQuery) -> Result<List
     let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
     let mut select_q = sqlx::query_as::<_, Person>(&select_query);
 
-    let pattern = if let Some(search) = &query.search {
-        Some(format!("%{}%", search))
-    } else {
-        None
-    };
+    let pattern = query.search.as_ref().map(|search| format!("%{}%", search));
 
     if let Some(p) = &pattern {
         count_q = count_q.bind(p);

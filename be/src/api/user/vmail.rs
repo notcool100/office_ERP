@@ -109,7 +109,7 @@ impl VmailService {
 
         let mut hasher = Sha512::new();
         hasher.update(password.as_bytes());
-        hasher.update(&salt);
+        hasher.update(salt);
         let hash = hasher.finalize();
 
         let mut combined = hash.to_vec();

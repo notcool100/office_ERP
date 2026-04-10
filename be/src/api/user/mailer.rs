@@ -8,6 +8,12 @@ pub struct Mailer {
     from: String,
 }
 
+impl Default for Mailer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Mailer {
     pub fn new() -> Self {
         let host = env::var("SMTP_HOST").expect("SMTP_HOST must be set");

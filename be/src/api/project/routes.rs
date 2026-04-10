@@ -58,7 +58,10 @@ pub fn project_routes() -> Router {
         )
         .route("/{id}/sprints", get(handlers::list_sprints_handler))
         .route("/{id}/sprints", post(handlers::create_sprint_handler))
-        .route("/{id}/sprints/{sprint_id}", put(handlers::update_sprint_handler))
+        .route(
+            "/{id}/sprints/{sprint_id}",
+            put(handlers::update_sprint_handler),
+        )
         .route(
             "/{id}/sprints/{sprint_id}",
             delete(handlers::delete_sprint_handler),

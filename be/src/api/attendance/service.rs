@@ -65,13 +65,11 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     .bind(req.method.unwrap_or_else(|| "MANUAL".to_string()))
     .bind(
         req.latitude
-            .map(|l| BigDecimal::from_str(&l.to_string()).ok())
-            .flatten(),
+            .and_then(|l| BigDecimal::from_str(&l.to_string()).ok()),
     )
     .bind(
         req.longitude
-            .map(|l| BigDecimal::from_str(&l.to_string()).ok())
-            .flatten(),
+            .and_then(|l| BigDecimal::from_str(&l.to_string()).ok()),
     )
     .bind(now_utc.naive_utc())
     .fetch_one(db)
