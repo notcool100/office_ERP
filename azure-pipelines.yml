@@ -42,8 +42,6 @@ stages:
     - script: |
         set -e
 
-        export PATH="$CARGO_HOME/bin:$PATH"
-
         echo "=== Building Backend ==="
         rustc --version
         cargo --version
