@@ -227,5 +227,5 @@ stages:
     - script: |
         echo "=== Reload Nginx ==="
         sudo nginx -t
-        sudo systemctl reload nginx
+        sudo systemctl reload nginx || sudo systemctl restart nginx
       displayName: "Reload Nginx"
