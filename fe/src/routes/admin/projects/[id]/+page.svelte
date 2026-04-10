@@ -99,6 +99,7 @@
     let newCardAttachments: { file: File, previewUrl: string }[] = [];
 
     let sprintFilter = 'all';
+    let activeMainTab: 'board' | 'map' = 'board';
 
     let cardForm = {
         column_id: '',
@@ -631,6 +632,78 @@
         cardForm.description = event.detail;
     }
 
+    // Map View Logic
+    let mapNodeRefs: Record<string, HTMLElement> = {};
+    let mapSvgOverlay: SVGSVGElement | null = null;
+    let mapLines: {id: string, x1: number, y1: number, x2: number, y2: number, color: string, type: string}[] = [];
+    
+    function drawMapLines() {
+        if (activeMainTab !== 'map' || !mapSvgOverlay) return;
+        
+        requestAnimationFrame(() => {
+            if (!mapSvgOverlay) return;
+            const svgRect = mapSvgOverlay.getBoundingClientRect();
+            const newLines = [];
+            
+            for (const card of cards) {
+                if (card.parent_id && mapNodeRefs[card.id] && mapNodeRefs[card.parent_id]) {
+                    const childRect = mapNodeRefs[card.id].getBoundingClientRect();
+                    const parentRect = mapNodeRefs[card.parent_id].getBoundingClientRect();
+                    
+                    // Avoid drawing if nodes are hidden/collapsed
+                    if (childRect.width === 0 || parentRect.width === 0) continue;
+                    
+                    newLines.push({
+                        id: `v-${card.id}`,
+                        x1: parentRect.left + 24 - svgRect.left,
+                        y1: parentRect.bottom - svgRect.top - 5,
+                        x2: parentRect.left + 24 - svgRect.left,
+                        y2: childRect.top + (childRect.height / 2) - svgRect.top,
+                        color: 'oklch(var(--bc) / 0.2)',
+                        type: 'v'
+                    });
+                    
+                    newLines.push({
+                        id: `h-${card.id}`,
+                        x1: parentRect.left + 24 - svgRect.left,
+                        y1: childRect.top + (childRect.height / 2) - svgRect.top,
+                        x2: childRect.left - svgRect.left - 5,
+                        y2: childRect.top + (childRect.height / 2) - svgRect.top,
+                        color: 'oklch(var(--bc) / 0.2)',
+                        type: 'h'
+                    });
+                }
+            }
+            mapLines = newLines;
+        });
+    }
+
+    $: if (activeMainTab === 'map' && cards.length >= 0) {
+        setTimeout(drawMapLines, 50);
+    }
+
+    $: mapSprintsWithCards = sprints
+        .filter(s => sprintFilter === 'all' || s.id === sprintFilter)
+        .map(s => ({
+            sprint: s,
+            cards: cards.filter(c => c.sprint_id === s.id)
+        }));
+        
+    $: unassignedMapCards = cards.filter(c => !c.sprint_id && (sprintFilter === 'all' || sprintFilter === ''));
+
+    function getTopLevelCardsForGroup(groupCards: Card[]) {
+        const groupCardIds = new Set(groupCards.map(c => c.id));
+        return groupCards.filter(c => !c.parent_id || !groupCardIds.has(c.parent_id)).sort((a, b) => {
+            if (a.card_type === 'epic' && b.card_type !== 'epic') return -1;
+            if (b.card_type === 'epic' && a.card_type !== 'epic') return 1;
+            return a.sequence_no - b.sequence_no;
+        });
+    }
+
+    function getChildrenForGroup(groupCards: Card[], parentId: string) {
+        return groupCards.filter(c => c.parent_id === parentId).sort((a,b) => a.sequence_no - b.sequence_no);
+    }
+
     onMount(() => {
         loadProjectData();
     });
@@ -654,11 +727,17 @@
         <div class="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
             <div class="space-y-4">
                 <div class="flex items-center justify-between gap-4 flex-wrap">
-                    <div>
-                        <div class="text-sm opacity-70">
-                            {project.project_key} • {project.status}
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <div class="text-sm opacity-70">
+                                {project.project_key} • {project.status}
+                            </div>
+                            <h2 class="text-xl font-semibold">{project.name}</h2>
                         </div>
-                        <h2 class="text-xl font-semibold">{project.name}</h2>
+                        <div class="tabs tabs-boxed ml-4 bg-base-200/50">
+                            <button class="tab {activeMainTab === 'board' ? 'tab-active' : ''}" on:click={() => activeMainTab = 'board'}>Board</button>
+                            <button class="tab {activeMainTab === 'map' ? 'tab-active' : ''}" on:click={() => activeMainTab = 'map'}>Map</button>
+                        </div>
                     </div>
                     <div class="flex items-center gap-3 flex-wrap">
                         <div class="form-control">
@@ -680,9 +759,10 @@
                     </div>
                 </div>
 
-                <div
-                    class="grid gap-4"
-                    style={`grid-template-columns: repeat(${board.columns.length}, minmax(240px, 1fr));`}>
+                {#if activeMainTab === 'board'}
+                    <div
+                        class="grid gap-4"
+                        style={`grid-template-columns: repeat(${board.columns.length}, minmax(240px, 1fr));`}>
                     {#each board.columns as column}
                         <div class="bg-base-200 rounded-lg p-3 space-y-3">
                             <div class="flex items-center justify-between">
@@ -801,6 +881,122 @@
                         </div>
                     {/each}
                 </div>
+                {:else if activeMainTab === 'map'}
+                    <div class="bg-base-200/30 rounded-xl border border-base-300 p-4 min-h-[600px] overflow-auto relative sprint-map-container"
+                         on:scroll={() => requestAnimationFrame(drawMapLines)}>
+                         
+                        <svg bind:this={mapSvgOverlay} class="absolute top-0 left-0 w-full h-full pointer-events-none z-0">
+                            {#each mapLines as line (line.id)}
+                            	<path d={`M ${line.x1} ${line.y1} L ${line.x2} ${line.y2}`} stroke={line.color} stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+                            {/each}
+                        </svg>
+
+                        <div class="relative z-10 flex flex-col gap-8">
+                            {#each mapSprintsWithCards as sprintGroup (sprintGroup.sprint.id)}
+                                <!-- Only show sprint if it has cards or sprint filter is active on it -->
+                                {#if sprintGroup.cards.length > 0 || sprintFilter === sprintGroup.sprint.id}
+                                    <div class="flex flex-col gap-4">
+                                        <div class="flex items-center gap-3 border-b border-base-300 pb-2">
+                                            <div class="font-bold text-lg">{sprintGroup.sprint.name}</div>
+                                            <div class="badge badge-sm badge-outline">{sprintGroup.cards.length} cards</div>
+                                            {#if sprintGroup.sprint.goal}
+                                                <div class="text-xs opacity-70 italic max-w-md truncate">{sprintGroup.sprint.goal}</div>
+                                            {/if}
+                                        </div>
+                                        
+                                        <div class="flex flex-col gap-2 pl-2">
+                                            {#if sprintGroup.cards.length === 0}
+                                                <div class="italic text-sm opacity-50 px-2">No cards in this sprint</div>
+                                            {:else}
+                                                {#each getTopLevelCardsForGroup(sprintGroup.cards) as topCard (topCard.id)}
+                                                    <div class="flex flex-col">
+                                                        <!-- Top Level (Epic / Story) -->
+                                                        <div bind:this={mapNodeRefs[topCard.id]} class="card bg-base-100 border border-base-300 shadow w-64 cursor-pointer hover:border-primary transition-colors my-2" class:border-purple-500={topCard.card_type === 'epic'} class:border-success={topCard.card_type === 'story'} class:border-error={topCard.card_type === 'bug'} class:border-info={topCard.card_type === 'task'} on:click={() => openCardDetails(topCard)} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && openCardDetails(topCard)}>
+                                                            <div class="p-3">
+                                                                <div class="text-[10px] font-mono opacity-70 mb-1">{topCard.card_key} • <span class="uppercase">{topCard.card_type}</span></div>
+                                                                <div class="font-medium text-sm leading-tight">{topCard.title}</div>
+                                                                <div class="flex justify-between items-center mt-2">
+                                                                    <div class="text-xs opacity-60">{topCard.assignee_name || 'Unassigned'}</div>
+                                                                    <div class="badge badge-sm uppercase text-[9px]">{topCard.priority}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- Level 1 Children -->
+                                                        {#each getChildrenForGroup(sprintGroup.cards, topCard.id) as child1 (child1.id)}
+                                                            <div class="flex flex-col pl-12 relative">
+                                                                <div bind:this={mapNodeRefs[child1.id]} class="card bg-base-100 border border-base-300 shadow w-64 cursor-pointer hover:border-primary transition-colors my-2" class:border-purple-500={child1.card_type === 'epic'} class:border-success={child1.card_type === 'story'} class:border-error={child1.card_type === 'bug'} class:border-info={child1.card_type === 'task'} on:click={() => openCardDetails(child1)} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && openCardDetails(child1)}>
+                                                                    <div class="p-3">
+                                                                        <div class="text-[10px] font-mono opacity-70 mb-1">{child1.card_key} • <span class="uppercase">{child1.card_type}</span></div>
+                                                                        <div class="font-medium text-sm leading-tight">{child1.title}</div>
+                                                                    </div>
+                                                                </div>
+                                                                <!-- Level 2 Children -->
+                                                                {#each getChildrenForGroup(sprintGroup.cards, child1.id) as child2 (child2.id)}
+                                                                    <div class="flex flex-col pl-12 relative">
+                                                                        <div bind:this={mapNodeRefs[child2.id]} class="card bg-base-100 border border-base-300 shadow w-56 cursor-pointer hover:border-primary transition-colors my-1" class:border-purple-500={child2.card_type === 'epic'} class:border-success={child2.card_type === 'story'} class:border-error={child2.card_type === 'bug'} class:border-info={child2.card_type === 'task'} on:click={() => openCardDetails(child2)} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && openCardDetails(child2)}>
+                                                                            <div class="p-2">
+                                                                                <div class="text-[10px] font-mono opacity-70 mb-1">{child2.card_key} • <span class="uppercase">{child2.card_type}</span></div>
+                                                                                <div class="font-medium text-xs leading-tight">{child2.title}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                {/each}
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                {/each}
+                                            {/if}
+                                        </div>
+                                    </div>
+                                {/if}
+                            {/each}
+                            
+                            <!-- Unassigned Cards -->
+                            {#if unassignedMapCards.length > 0}
+                                <div class="flex flex-col gap-4 opacity-80 mt-4">
+                                    <div class="flex items-center gap-3 border-b border-base-300 pb-2">
+                                        <div class="font-bold text-lg">Backlog / Unassigned</div>
+                                        <div class="badge badge-sm badge-outline">{unassignedMapCards.length} cards</div>
+                                    </div>
+                                    <div class="flex flex-col gap-2 pl-2">
+                                        {#each getTopLevelCardsForGroup(unassignedMapCards) as topCard (topCard.id)}
+                                            <div class="flex flex-col">
+                                                <div bind:this={mapNodeRefs[topCard.id]} class="card bg-base-100 border border-base-300 shadow w-64 cursor-pointer hover:border-primary transition-colors my-2" class:border-purple-500={topCard.card_type === 'epic'} class:border-success={topCard.card_type === 'story'} class:border-error={topCard.card_type === 'bug'} class:border-info={topCard.card_type === 'task'} on:click={() => openCardDetails(topCard)} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && openCardDetails(topCard)}>
+                                                    <div class="p-3">
+                                                        <div class="text-[10px] font-mono opacity-70 mb-1">{topCard.card_key} • <span class="uppercase">{topCard.card_type}</span></div>
+                                                        <div class="font-medium text-sm leading-tight">{topCard.title}</div>
+                                                    </div>
+                                                </div>
+                                                <!-- Level 1 Children -->
+                                                {#each getChildrenForGroup(unassignedMapCards, topCard.id) as child1 (child1.id)}
+                                                    <div class="flex flex-col pl-12 relative">
+                                                        <div bind:this={mapNodeRefs[child1.id]} class="card bg-base-100 border border-base-300 shadow w-64 cursor-pointer hover:border-primary transition-colors my-2" class:border-purple-500={child1.card_type === 'epic'} class:border-success={child1.card_type === 'story'} class:border-error={child1.card_type === 'bug'} class:border-info={child1.card_type === 'task'} on:click={() => openCardDetails(child1)} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && openCardDetails(child1)}>
+                                                            <div class="p-2">
+                                                                <div class="text-[10px] font-mono opacity-70 mb-1">{child1.card_key}</div>
+                                                                <div class="font-medium text-xs leading-tight">{child1.title}</div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- Level 2 Children -->
+                                                        {#each getChildrenForGroup(unassignedMapCards, child1.id) as child2 (child2.id)}
+                                                            <div class="flex flex-col pl-12 relative">
+                                                                <div bind:this={mapNodeRefs[child2.id]} class="card bg-base-100 border border-base-300 shadow w-56 cursor-pointer hover:border-primary transition-colors my-1" class:border-purple-500={child2.card_type === 'epic'} class:border-success={child2.card_type === 'story'} class:border-error={child2.card_type === 'bug'} class:border-info={child2.card_type === 'task'} on:click={() => openCardDetails(child2)} role="button" tabindex="0" on:keydown={(e) => e.key === 'Enter' && openCardDetails(child2)}>
+                                                                    <div class="p-2">
+                                                                        <div class="text-[10px] font-mono opacity-70 mb-1">{child2.card_key}</div>
+                                                                        <div class="font-medium text-[11px] leading-tight">{child2.title}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        {/each}
+                                                    </div>
+                                                {/each}
+                                            </div>
+                                        {/each}
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                {/if}
             </div>
 
             <div class="space-y-4">
