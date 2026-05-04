@@ -38,4 +38,6 @@ npm run dev
 
 See the READMEs inside each subdirectory for more details about development, testing, and additional commands.
 
+If you want to deploy with Coolify, see [COOLIFY.md](./COOLIFY.md).
+
 For contribution guidelines refer to [AGENTS.md](./AGENTS.md).
