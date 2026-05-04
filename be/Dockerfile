@@ -1,6 +1,6 @@
 # Backend Dockerfile for Coolify
 # Builds the Rust axum backend and serves it on port 3117.
-ARG RUST_VERSION=1.85
+ARG RUST_VERSION=1.88.0
 FROM rust:${RUST_VERSION} AS builder
 WORKDIR /usr/src/app
 
