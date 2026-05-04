@@ -10,7 +10,8 @@ pub async fn init_pool() -> Result<Db, sqlx::Error> {
 }
 
 pub async fn init_vmail_pool() -> Result<VmailDb, sqlx::Error> {
-    let url = env::var("VMAIL_DATABASE_URL").expect("VMAIL_DATABASE_URL not set");
+    let url = env::var("VMAIL_DATABASE_URL")
+        .map_err(|_| sqlx::Error::Configuration("VMAIL_DATABASE_URL not set".into()))?;
     MySqlPoolOptions::new()
         .max_connections(5)
         .connect(&url)
