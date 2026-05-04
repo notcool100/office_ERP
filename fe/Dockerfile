@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 RUN npm install -g pnpm
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml svelte.config.js tsconfig.json ./
 RUN pnpm install
 COPY . .
 RUN pnpm run build
