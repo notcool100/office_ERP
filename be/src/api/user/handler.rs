@@ -19,12 +19,11 @@ pub async fn create_user_handler(
     Extension(vmail_db): Extension<Option<VmailDb>>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<User>), StatusCode> {
-    let vmail_db = vmail_db.ok_or_else(|| {
-        eprintln!("Vmail database not initialized (likely local development)");
-        StatusCode::SERVICE_UNAVAILABLE
-    })?;
+    if vmail_db.is_none() {
+        tracing::warn!("Vmail database not initialized — mailbox creation will be skipped");
+    }
 
-    let user = service::create_user(&db, &vmail_db, payload)
+    let user = service::create_user(&db, vmail_db.as_ref(), payload)
         .await
         .map_err(|e| {
             eprintln!("Error creating user: {}", e);
