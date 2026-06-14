@@ -2,7 +2,8 @@ use axum::{Router, routing::get};
 
 use crate::api::{
     attendance::routes::attendance_routes, auth::routes::auth_routes,
-    calendar::routes::calendar_routes, daily_log::routes::daily_log_routes,
+    calendar::routes::calendar_routes, content_calendar::routes::content_calendar_routes,
+    daily_log::routes::daily_log_routes,
     department::routes::department_routes, employee::routes::employee_routes,
     home::handlers::health_check_handler, intern::routes::intern_routes,
     leave::routes::leave_routes, messaging::routes::messaging_routes,
@@ -38,6 +39,10 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
             position_routes().layer(rbac::require_permission("/admin/settings/position")),
         )
         .nest("/calendar", calendar_routes())
+        .nest(
+            "/content-calendar",
+            content_calendar_routes().layer(rbac::require_permission("/admin/digital-marketing/content-calendar")),
+        )
         .nest(
             "/projects",
             project_routes().layer(rbac::require_permission("/admin/projects")),

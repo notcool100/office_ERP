@@ -1,4 +1,5 @@
 pub mod attendance;
+pub mod content_calendar;
 pub mod auth;
 pub mod calendar;
 pub mod daily_log;

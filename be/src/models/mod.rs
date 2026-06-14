@@ -1,4 +1,5 @@
 pub mod attendance;
+pub mod content_calendar_item;
 pub mod board;
 pub mod board_column;
 pub mod calendar_event;
