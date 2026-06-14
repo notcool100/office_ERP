@@ -1,5 +1,9 @@
 pub mod attendance;
+pub mod campaigns;
+pub mod client_management;
 pub mod content_calendar;
+pub mod marketing_reports;
+pub mod media_library;
 pub mod auth;
 pub mod calendar;
 pub mod daily_log;
