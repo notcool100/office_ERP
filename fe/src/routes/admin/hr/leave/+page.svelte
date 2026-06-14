@@ -286,28 +286,24 @@
                             <td>
                                 {#if request.status === 'pending'}
                                     <div class="flex gap-2">
-                                        <button
-                                            class="btn btn-sm btn-success"
-                                            disabled={!canUpdateHere}
-                                            title={!canUpdateHere
-                                                ? 'No permission to update'
-                                                : 'Approve leave'}
-                                            on:click={() =>
-                                                approveRequest(request.id)}>
-                                            <CheckCircle size={16} />
-                                            Approve
-                                        </button>
-                                        <button
-                                            class="btn btn-sm btn-error"
-                                            disabled={!canUpdateHere}
-                                            title={!canUpdateHere
-                                                ? 'No permission to update'
-                                                : 'Reject leave'}
-                                            on:click={() =>
-                                                rejectRequest(request.id)}>
-                                            <XCircle size={16} />
-                                            Reject
-                                        </button>
+                                        {#if canUpdateHere}
+                                            <button
+                                                class="btn btn-sm btn-success"
+                                                on:click={() =>
+                                                    approveRequest(request.id)}>
+                                                <CheckCircle size={16} />
+                                                Approve
+                                            </button>
+                                            <button
+                                                class="btn btn-sm btn-error"
+                                                on:click={() =>
+                                                    rejectRequest(request.id)}>
+                                                <XCircle size={16} />
+                                                Reject
+                                            </button>
+                                        {:else}
+                                            <span class="text-sm text-gray-400">Pending review</span>
+                                        {/if}
                                     </div>
                                 {:else}
                                     <span class="text-sm text-gray-500">
