@@ -27,9 +27,8 @@ pub fn employee_routes() -> Router {
             "/admin/hr/attendance/register-face",
         ));
 
-    let self_routes = Router::new()
-        .route("/me", get(handlers::get_my_employee_handler))
-        .layer(rbac::require_permission("/admin/hr/attendance"));
+    let me_route = Router::new()
+        .route("/me", get(handlers::get_my_employee_handler));
 
-    crud_routes.merge(face_routes).merge(self_routes)
+    crud_routes.merge(face_routes).merge(me_route)
 }
