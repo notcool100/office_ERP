@@ -1,4 +1,5 @@
 pub mod attendance;
+pub mod payroll;
 pub mod campaigns;
 pub mod client_management;
 pub mod content_calendar;

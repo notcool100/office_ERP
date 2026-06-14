@@ -12,6 +12,7 @@ use crate::api::{
     home::handlers::health_check_handler, intern::routes::intern_routes,
     leave::routes::leave_routes, messaging::routes::messaging_routes,
     navigation::routes::navigation_routes,
+    payroll::routes::{payroll_my_routes, payroll_routes},
     notification_settings::routes::notification_settings_routes,
     permissions::routes::permissions_routes, person::routes::person_routes,
     position::routes::position_routes, project::routes::project_routes,
@@ -30,6 +31,11 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
             "/leave",
             leave_routes().layer(rbac::require_permission("/admin/hr/leave")),
         )
+        .nest(
+            "/payroll",
+            payroll_routes().layer(rbac::require_permission("/admin/hr/payroll")),
+        )
+        .nest("/payroll", payroll_my_routes())
         .nest(
             "/attendance",
             attendance_routes().layer(rbac::require_permission("/admin/hr/attendance")),
