@@ -36,7 +36,7 @@ pub async fn create_leave_request(
         RETURNING id
         "#,
     )
-    .bind(req.employee_id)
+    .bind(req.employee_id.expect("employee_id resolved before service call"))
     .bind(req.leave_type_id)
     .bind(req.start_date)
     .bind(req.end_date)

@@ -123,7 +123,7 @@
     async function handleSubmit() {
         try {
             const data: CreateLeaveRequestRequest = {
-                employeeId: formData.employeeId,
+                employeeId: formData.employeeId || null,
                 leaveTypeId: formData.leaveTypeId,
                 startDate: formData.startDate,
                 endDate: formData.endDate,

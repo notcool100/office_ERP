@@ -24,7 +24,7 @@ export interface LeaveRequest {
 }
 
 export interface CreateLeaveRequestRequest {
-    employeeId: string;
+    employeeId: string | null;
     leaveTypeId: string;
     startDate: string;
     endDate: string;

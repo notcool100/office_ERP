@@ -16,8 +16,27 @@ use uuid::Uuid;
 
 pub async fn create_leave_request_handler(
     Extension(db): Extension<Db>,
-    Json(payload): Json<CreateLeaveRequestRequest>,
+    Extension(user): Extension<User>,
+    Json(mut payload): Json<CreateLeaveRequestRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    if payload.employee_id.is_none() {
+        let resolved = sqlx::query_scalar::<_, Uuid>(
+            "SELECT e.id FROM employees e \
+             JOIN users u ON u.person_id = e.person_id \
+             WHERE u.id = $1 LIMIT 1",
+        )
+        .bind(user.id)
+        .fetch_optional(&db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        payload.employee_id = resolved;
+    }
+
+    if payload.employee_id.is_none() {
+        return Err(StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
     let leave_request = service::create_leave_request(&db, payload)
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;

@@ -5,7 +5,8 @@ use uuid::Uuid;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateLeaveRequestRequest {
-    pub employee_id: Uuid,
+    #[serde(default)]
+    pub employee_id: Option<Uuid>,
     pub leave_type_id: Uuid,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
