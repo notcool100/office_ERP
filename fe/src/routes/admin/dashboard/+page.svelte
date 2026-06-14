@@ -1,86 +1,99 @@
 <script lang="ts">
     import { breadcrumb } from '$lib/stores/breadcrumb';
     import { pageTitle } from '$lib/stores/page-title';
-    import { Home, LayoutDashboard } from 'lucide-svelte';
-    import SalesChart from '../../../components/charts/SalesChart.svelte';
+    import { userStore } from '$lib/stores/user';
+    import { Home, LayoutDashboard, Users, CalendarCheck, ClipboardList, TrendingUp } from 'lucide-svelte';
+    import { onMount } from 'svelte';
+    import { api } from '$lib/services/api';
 
-    let stats = {
-        sales: 24000,
-        income: 18500,
-        clients: 1254,
-    };
-
-    pageTitle.set({
-        title: 'Dashboard',
-        desc: 'Admin overview and activity',
-    });
-
+    pageTitle.set({ title: 'Dashboard', desc: 'Workspace overview' });
     breadcrumb.set([
         { label: 'Home', icon: Home },
         { label: 'Dashboard', icon: LayoutDashboard },
     ]);
+
+    let employeeCount = 0;
+    let pendingLeave = 0;
+    let openProjects = 0;
+
+    onMount(async () => {
+        try {
+            const [empRes, leaveRes, projRes] = await Promise.allSettled([
+                api.get('/employees'),
+                api.get('/leave/requests?status=pending'),
+                api.get('/projects'),
+            ]);
+            if (empRes.status === 'fulfilled' && empRes.value.ok) {
+                const data = await empRes.value.json();
+                employeeCount = data?.total ?? (Array.isArray(data?.employees) ? data.employees.length : (Array.isArray(data) ? data.length : 0));
+            }
+            if (leaveRes.status === 'fulfilled' && leaveRes.value.ok) {
+                const data = await leaveRes.value.json();
+                pendingLeave = data?.total ?? (Array.isArray(data?.requests) ? data.requests.length : 0);
+            }
+            if (projRes.status === 'fulfilled' && projRes.value.ok) {
+                const data = await projRes.value.json();
+                openProjects = Array.isArray(data) ? data.filter((p: any) => p.status === 'active').length : 0;
+            }
+        } catch {
+            // non-critical
+        }
+    });
+
+    $: greeting = (() => {
+        const h = new Date().getHours();
+        if (h < 12) return 'Good morning';
+        if (h < 17) return 'Good afternoon';
+        return 'Good evening';
+    })();
 </script>
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-    <div class="bg-base-200 p-4 rounded shadow">
-        <h2 class="text-lg font-semibold">📈 Sales</h2>
-        <p class="text-2xl mt-2">
-            ${stats.sales.toLocaleString()}
-        </p>
-    </div>
-    <div class="bg-base-200 p-4 rounded shadow">
-        <h2 class="text-lg font-semibold">💵 Income</h2>
-        <p class="text-2xl mt-2">
-            ${stats.income.toLocaleString()}
-        </p>
-    </div>
-    <div class="bg-base-200 p-4 rounded shadow">
-        <h2 class="text-lg font-semibold">👥 Clients</h2>
-        <p class="text-2xl mt-2">{stats.clients}</p>
-    </div>
-</div>
+<div class="p-6 space-y-6">
 
-<!-- <div class="bg-base-200 p-6 rounded shadow">
-    <h2 class="text-lg font-semibold mb-4">📊 Sales Overview</h2>
+    <!-- Welcome -->
     <div>
-        <SalesChart />
+        <h1 class="text-2xl font-bold">{greeting}, {$userStore.user?.userName ?? 'there'}</h1>
+        <p class="text-base-content/50 text-sm mt-1">Here's what's happening in your workspace today.</p>
     </div>
-</div> -->
 
-<div class="bg-base-200 p-6 shadow">
-    <div class="card-body">
-        <h2 class="card-title">Latest Invoices</h2>
-        <div class="overflow-x-auto">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Invoice ID</th>
-                        <th>Client</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        ><td>INV-2031</td><td>XYZ Ltd</td><td>$1,200.00</td><td
-                            ><span class="badge badge-success">Paid</span></td
-                        ></tr>
-                    <tr
-                        ><td>INV-2032</td><td>Alpha Inc</td><td>$3,450.50</td
-                        ><td
-                            ><span class="badge badge-warning">Pending</span
-                            ></td
-                        ></tr>
-                    <tr
-                        ><td>INV-2033</td><td>Delta Co</td><td>$847.00</td><td
-                            ><span class="badge badge-error">Overdue</span></td
-                        ></tr>
-                    <tr
-                        ><td>INV-2034</td><td>Beta Group</td><td>$2,150.75</td
-                        ><td><span class="badge badge-success">Paid</span></td
-                        ></tr>
-                </tbody>
-            </table>
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="stat bg-base-100 rounded-box border border-base-300 p-5">
+            <div class="stat-figure text-primary"><Users size={28} /></div>
+            <div class="stat-title">Employees</div>
+            <div class="stat-value">{employeeCount}</div>
+            <div class="stat-desc">Total active staff</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box border border-base-300 p-5">
+            <div class="stat-figure text-warning"><CalendarCheck size={28} /></div>
+            <div class="stat-title">Pending Leave</div>
+            <div class="stat-value">{pendingLeave}</div>
+            <div class="stat-desc">Awaiting approval</div>
+        </div>
+        <div class="stat bg-base-100 rounded-box border border-base-300 p-5">
+            <div class="stat-figure text-success"><ClipboardList size={28} /></div>
+            <div class="stat-title">Active Projects</div>
+            <div class="stat-value">{openProjects}</div>
+            <div class="stat-desc">Currently in progress</div>
+        </div>
+    </div>
+
+    <!-- Quick links -->
+    <div>
+        <h2 class="text-sm font-semibold text-base-content/50 uppercase tracking-wider mb-3">Quick Access</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {#each [
+                { label: 'Leave Requests', href: '/admin/hr/leave', icon: CalendarCheck, color: 'text-warning' },
+                { label: 'Employees', href: '/admin/hr/employee', icon: Users, color: 'text-primary' },
+                { label: 'Projects', href: '/admin/projects', icon: ClipboardList, color: 'text-success' },
+                { label: 'Daily Log', href: '/admin/daily-log', icon: TrendingUp, color: 'text-info' },
+            ] as link}
+                <a href={link.href}
+                    class="flex items-center gap-3 p-4 bg-base-100 rounded-box border border-base-300 hover:border-primary hover:shadow-sm transition-all group">
+                    <svelte:component this={link.icon} size={20} class="{link.color} shrink-0" />
+                    <span class="text-sm font-medium group-hover:text-primary transition-colors">{link.label}</span>
+                </a>
+            {/each}
         </div>
     </div>
 </div>
