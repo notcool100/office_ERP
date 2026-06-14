@@ -121,63 +121,67 @@ struct NavigationWithPermissions {
 pub async fn get_user_navigation(
     pool: &PgPool,
     user_id: Uuid,
+    is_admin: bool,
 ) -> Result<Vec<UserNavigationItemDto>> {
-    // Get user's department and position from employees or interns
-    // Define a struct to hold the role info
-    #[derive(sqlx::FromRow)]
-    struct RoleInfo {
-        department_id: Option<Uuid>,
-        position_id: Option<Uuid>,
-    }
-
-    let role_info: Option<RoleInfo> = sqlx::query_as::<_, RoleInfo>(
-        r#"
-        SELECT department_id, position_id FROM employees 
-        WHERE person_id = (SELECT person_id FROM users WHERE id = $1)
-        UNION
-        SELECT department_id, position_id FROM interns 
-        WHERE person_id = (SELECT person_id FROM users WHERE id = $1)
-        "#,
-    )
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await?;
-
-    if role_info.is_none() {
-        // User has no employee/intern record - return empty navigation
-        return Ok(vec![]);
-    }
-
-    let role = role_info.unwrap();
-
-    // Get navigation items with aggregated permissions
-    let nav_with_perms = sqlx::query_as::<_, NavigationWithPermissions>(
-        r#"
-        SELECT DISTINCT 
-            n.id,
-            n.name,
-            n.path,
-            n.icon,
-            n.parent_id,
-            n.display_order,
-            COALESCE(MAX(rp.can_create::int), 0)::bool as can_create,
-            COALESCE(MAX(rp.can_read::int), 0)::bool as can_read,
-            COALESCE(MAX(rp.can_update::int), 0)::bool as can_update,
-            COALESCE(MAX(rp.can_delete::int), 0)::bool as can_delete
-        FROM navigation_items n
-        INNER JOIN role_permissions rp ON n.id = rp.navigation_item_id
-        WHERE n.is_active = true
-        AND (
-            (rp.department_id = $1 OR rp.position_id = $2)
+    // Admin users see all active nav items with full permissions
+    let nav_with_perms = if is_admin {
+        sqlx::query_as::<_, NavigationWithPermissions>(
+            r#"
+            SELECT
+                n.id, n.name, n.path, n.icon, n.parent_id, n.display_order,
+                true as can_create, true as can_read, true as can_update, true as can_delete
+            FROM navigation_items n
+            WHERE n.is_active = true
+            ORDER BY n.display_order, n.name
+            "#,
         )
-        GROUP BY n.id, n.name, n.path, n.icon, n.parent_id, n.display_order
-        ORDER BY n.display_order, n.name
-        "#,
-    )
-    .bind(role.department_id)
-    .bind(role.position_id)
-    .fetch_all(pool)
-    .await?;
+        .fetch_all(pool)
+        .await?
+    } else {
+        #[derive(sqlx::FromRow)]
+        struct RoleInfo {
+            department_id: Option<Uuid>,
+            position_id: Option<Uuid>,
+        }
+
+        let role_info: Option<RoleInfo> = sqlx::query_as::<_, RoleInfo>(
+            r#"
+            SELECT department_id, position_id FROM employees
+            WHERE person_id = (SELECT person_id FROM users WHERE id = $1)
+            UNION
+            SELECT department_id, position_id FROM interns
+            WHERE person_id = (SELECT person_id FROM users WHERE id = $1)
+            "#,
+        )
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+
+        let Some(role) = role_info else {
+            return Ok(vec![]);
+        };
+
+        sqlx::query_as::<_, NavigationWithPermissions>(
+            r#"
+            SELECT DISTINCT
+                n.id, n.name, n.path, n.icon, n.parent_id, n.display_order,
+                COALESCE(MAX(rp.can_create::int), 0)::bool as can_create,
+                COALESCE(MAX(rp.can_read::int), 0)::bool as can_read,
+                COALESCE(MAX(rp.can_update::int), 0)::bool as can_update,
+                COALESCE(MAX(rp.can_delete::int), 0)::bool as can_delete
+            FROM navigation_items n
+            INNER JOIN role_permissions rp ON n.id = rp.navigation_item_id
+            WHERE n.is_active = true
+            AND (rp.department_id = $1 OR rp.position_id = $2)
+            GROUP BY n.id, n.name, n.path, n.icon, n.parent_id, n.display_order
+            ORDER BY n.display_order, n.name
+            "#,
+        )
+        .bind(role.department_id)
+        .bind(role.position_id)
+        .fetch_all(pool)
+        .await?
+    };
 
     // Build hierarchical structure
     let mut items_map: HashMap<Uuid, UserNavigationItemDto> = HashMap::new();

@@ -67,7 +67,7 @@ pub async fn get_user_navigation_handler(
     Extension(db): Extension<Db>,
     Extension(user): Extension<User>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
-    let nav_items = service::get_user_navigation(&db, user.id)
+    let nav_items = service::get_user_navigation(&db, user.id, user.is_admin)
         .await
         .map_err(|e| {
             eprintln!("Error getting user navigation: {}", e);

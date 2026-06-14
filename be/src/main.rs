@@ -46,6 +46,9 @@ async fn main() {
         }
     };
 
+    // Start background scheduler for due-date reminders
+    be::scheduler::start(db_pool.clone());
+
     let hub = be::ws::hub::Hub::new();
 
     use axum::http::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};

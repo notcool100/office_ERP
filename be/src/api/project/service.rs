@@ -399,6 +399,33 @@ pub async fn add_project_member(
     .await
     .map_err(|err| map_unique_error(err, "User is already a project member"))?;
 
+    // Notify new member
+    let pool_clone = pool.clone();
+    let to = member.email.clone();
+    let member_name = member.user_name.clone();
+    let role_label = member.role.clone();
+    tokio::spawn(async move {
+        if let Ok(project_name) =
+            sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+                .bind(project_id)
+                .fetch_one(&pool_clone)
+                .await
+        {
+            let send_result = tokio::task::spawn_blocking(move || {
+                crate::api::user::mailer::Mailer::new().send_project_member_added_email(
+                    &to,
+                    &member_name,
+                    &project_name,
+                    &role_label,
+                )
+            })
+            .await;
+            if let Ok(Err(e)) = send_result {
+                tracing::error!("Project member added notification failed: {}", e);
+            }
+        }
+    });
+
     Ok(member)
 }
 

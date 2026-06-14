@@ -1,4 +1,5 @@
 import {
+    Bell,
     Calendar,
     CalendarHeart,
     CalendarMinus,
@@ -160,6 +161,13 @@ export const menuList: MenuItem[] = [
                 icon: ShieldCheck,
                 color: 'text-accent',
                 url: '/admin/settings/permissions',
+            },
+            {
+                name: 'Notifications',
+                type: 'file',
+                icon: Bell,
+                color: 'text-accent',
+                url: '/admin/settings/notifications',
             },
         ],
     },

@@ -6,9 +6,11 @@ use crate::api::{
     department::routes::department_routes, employee::routes::employee_routes,
     home::handlers::health_check_handler, intern::routes::intern_routes,
     leave::routes::leave_routes, messaging::routes::messaging_routes,
-    navigation::routes::navigation_routes, permissions::routes::permissions_routes,
-    person::routes::person_routes, position::routes::position_routes,
-    project::routes::project_routes, user::routes::user_routes,
+    navigation::routes::navigation_routes,
+    notification_settings::routes::notification_settings_routes,
+    permissions::routes::permissions_routes, person::routes::person_routes,
+    position::routes::position_routes, project::routes::project_routes,
+    user::routes::user_routes,
 };
 use crate::middlewares::rbac;
 
@@ -58,6 +60,7 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
             user_routes().layer(rbac::require_permission("/admin/settings/user")),
         )
         .nest("/messaging", messaging_routes(hub.clone()))
+        .nest("/notification-settings", notification_settings_routes())
         .route_layer(axum::middleware::from_fn(
             crate::middlewares::auth::authenticate,
         ));

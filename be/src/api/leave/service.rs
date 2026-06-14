@@ -1,7 +1,11 @@
 use crate::{
-    api::leave::dto::{
-        ApproveRejectLeaveRequest, CreateLeaveRequestRequest, LeaveBalanceResponse,
-        LeaveRequestResponse, LeaveTypeResponse, ListLeaveRequestsQuery, ListLeaveRequestsResponse,
+    api::{
+        leave::dto::{
+            ApproveRejectLeaveRequest, CreateLeaveRequestRequest, LeaveBalanceResponse,
+            LeaveRequestResponse, LeaveTypeResponse, ListLeaveRequestsQuery,
+            ListLeaveRequestsResponse,
+        },
+        user::mailer::Mailer,
     },
     db::Db,
     models::leave::{LeaveRequestWithDetails, LeaveType},
@@ -42,7 +46,40 @@ pub async fn create_leave_request(
     .await?;
 
     // Fetch the complete leave request with details
-    get_leave_request(db, leave_id).await
+    let response = get_leave_request(db, leave_id).await?;
+
+    // Notify configured leave notification recipients
+    let db_clone = db.clone();
+    let emp_name = response.employee_name.clone();
+    let lt_name = response.leave_type_name.clone();
+    let start = response.start_date.to_string();
+    let end = response.end_date.to_string();
+    let reason = response.reason.clone().unwrap_or_default();
+    tokio::spawn(async move {
+        let recipients = crate::api::notification_settings::service::get_emails(
+            &db_clone,
+            "leave_notifications",
+        )
+        .await;
+        if !recipients.is_empty() {
+            let send_result = tokio::task::spawn_blocking(move || {
+                Mailer::new().send_leave_submitted_email(
+                    recipients,
+                    &emp_name,
+                    &lt_name,
+                    &start,
+                    &end,
+                    &reason,
+                )
+            })
+            .await;
+            if let Ok(Err(e)) = send_result {
+                tracing::error!("Leave submitted notification failed: {}", e);
+            }
+        }
+    });
+
+    Ok(response)
 }
 
 pub async fn get_leave_request(db: &Db, id: Uuid) -> Result<LeaveRequestResponse> {
@@ -207,7 +244,47 @@ pub async fn approve_leave(
     .await?
     .ok_or_else(|| anyhow!("Leave request not found"))?;
 
-    Ok(map_leave_request_to_response(leave_request))
+    let response = map_leave_request_to_response(leave_request);
+
+    // Notify employee of approval
+    let db_clone = db.clone();
+    let emp_id = response.employee_id;
+    let emp_name = response.employee_name.clone();
+    let lt_name = response.leave_type_name.clone();
+    let start = response.start_date.to_string();
+    let end = response.end_date.to_string();
+    let notes = response.notes.clone();
+    tokio::spawn(async move {
+        let email = sqlx::query_scalar::<_, String>(
+            r#"SELECT u.email FROM users u
+               JOIN employees e ON u.person_id = e.person_id
+               WHERE e.id = $1 AND u.email IS NOT NULL"#,
+        )
+        .bind(emp_id)
+        .fetch_optional(&db_clone)
+        .await
+        .ok()
+        .flatten();
+        if let Some(to) = email {
+            let send_result = tokio::task::spawn_blocking(move || {
+                Mailer::new().send_leave_decision_email(
+                    &to,
+                    &emp_name,
+                    &lt_name,
+                    &start,
+                    &end,
+                    true,
+                    notes.as_deref(),
+                )
+            })
+            .await;
+            if let Ok(Err(e)) = send_result {
+                tracing::error!("Leave approval notification failed: {}", e);
+            }
+        }
+    });
+
+    Ok(response)
 }
 
 pub async fn reject_leave(
@@ -247,7 +324,47 @@ pub async fn reject_leave(
     .await?
     .ok_or_else(|| anyhow!("Leave request not found"))?;
 
-    Ok(map_leave_request_to_response(leave_request))
+    let response = map_leave_request_to_response(leave_request);
+
+    // Notify employee of rejection
+    let db_clone = db.clone();
+    let emp_id = response.employee_id;
+    let emp_name = response.employee_name.clone();
+    let lt_name = response.leave_type_name.clone();
+    let start = response.start_date.to_string();
+    let end = response.end_date.to_string();
+    let notes = response.notes.clone();
+    tokio::spawn(async move {
+        let email = sqlx::query_scalar::<_, String>(
+            r#"SELECT u.email FROM users u
+               JOIN employees e ON u.person_id = e.person_id
+               WHERE e.id = $1 AND u.email IS NOT NULL"#,
+        )
+        .bind(emp_id)
+        .fetch_optional(&db_clone)
+        .await
+        .ok()
+        .flatten();
+        if let Some(to) = email {
+            let send_result = tokio::task::spawn_blocking(move || {
+                Mailer::new().send_leave_decision_email(
+                    &to,
+                    &emp_name,
+                    &lt_name,
+                    &start,
+                    &end,
+                    false,
+                    notes.as_deref(),
+                )
+            })
+            .await;
+            if let Ok(Err(e)) = send_result {
+                tracing::error!("Leave rejection notification failed: {}", e);
+            }
+        }
+    });
+
+    Ok(response)
 }
 
 pub async fn get_leave_types(db: &Db) -> Result<Vec<LeaveTypeResponse>> {

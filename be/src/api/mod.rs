@@ -9,6 +9,7 @@ pub mod intern;
 pub mod leave;
 pub mod messaging;
 pub mod navigation;
+pub mod notification_settings;
 pub mod permissions;
 pub mod person;
 pub mod position;

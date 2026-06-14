@@ -5,6 +5,7 @@ import { get } from 'svelte/store';
 
 // Icon mapping from backend to frontend (lucide-svelte components)
 import {
+    Bell,
     Calendar,
     CalendarHeart,
     CalendarMinus,
@@ -43,6 +44,7 @@ import {
 } from 'lucide-svelte';
 
 const iconMap: Record<string, any> = {
+    Bell,
     LayoutDashboard,
     UserCog,
     Settings,
