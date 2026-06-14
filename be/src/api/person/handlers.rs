@@ -1,4 +1,5 @@
 use crate::db::Db;
+use crate::models::user::User;
 use axum::{
     Json,
     extract::{Extension, Path, Query},
@@ -33,6 +34,18 @@ pub async fn list_persons_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
+    Ok((StatusCode::OK, Json(json!(response))))
+}
+
+pub async fn get_my_person_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    let person = service::get_person_by_id(&db, user.person_id)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    let response = service::map_person_to_response(person);
     Ok((StatusCode::OK, Json(json!(response))))
 }
 

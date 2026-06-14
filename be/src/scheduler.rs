@@ -10,6 +10,14 @@ struct DueSoonCard {
     due_date: chrono::NaiveDate,
 }
 
+#[derive(sqlx::FromRow)]
+struct DueScheduleNote {
+    title: String,
+    user_email: String,
+    user_name: String,
+    event_date: chrono::NaiveDate,
+}
+
 pub fn start(pool: PgPool) {
     tokio::spawn(async move {
         loop {
@@ -23,6 +31,7 @@ pub fn start(pool: PgPool) {
             tokio::time::sleep(tokio::time::Duration::from_secs(sleep_secs)).await;
 
             send_due_date_reminders(&pool).await;
+            send_schedule_reminders(&pool).await;
         }
     });
 }
@@ -78,6 +87,57 @@ async fn send_due_date_reminders(pool: &PgPool) {
         .await;
         if let Ok(Err(e)) = result {
             tracing::error!("[SCHEDULER] Due-date reminder failed for {}: {}", card.assignee_email, e);
+        }
+    }
+}
+
+async fn send_schedule_reminders(pool: &PgPool) {
+    let tomorrow = (Utc::now() + Duration::days(1)).date_naive();
+
+    let notes = sqlx::query_as::<_, DueScheduleNote>(
+        r#"
+        SELECT
+            ce.title,
+            u.email  AS user_email,
+            u.user_name AS user_name,
+            DATE(ce.start_at) AS event_date
+        FROM calendar_events ce
+        JOIN users u ON u.id = ce.created_by
+        WHERE ce.scope = 'personal'
+          AND DATE(ce.start_at) = $1
+          AND u.email IS NOT NULL
+        "#,
+    )
+    .bind(tomorrow)
+    .fetch_all(pool)
+    .await;
+
+    let notes = match notes {
+        Ok(n) => n,
+        Err(e) => {
+            tracing::error!("[SCHEDULER] Failed to fetch tomorrow's schedule notes: {}", e);
+            return;
+        }
+    };
+
+    tracing::info!(
+        "[SCHEDULER] Sending schedule reminders for {} notes (due {})",
+        notes.len(),
+        tomorrow
+    );
+
+    for note in notes {
+        let to = note.user_email.clone();
+        let name = note.user_name.clone();
+        let title = note.title.clone();
+        let date = note.event_date.to_string();
+        let result = tokio::task::spawn_blocking(move || {
+            crate::api::user::mailer::Mailer::new()
+                .send_schedule_reminder_email(&to, &name, &title, &date)
+        })
+        .await;
+        if let Ok(Err(e)) = result {
+            tracing::error!("[SCHEDULER] Schedule reminder failed for {}: {}", note.user_email, e);
         }
     }
 }

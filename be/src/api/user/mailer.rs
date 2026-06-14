@@ -274,6 +274,36 @@ impl Mailer {
         self.send_email(to, &subject, &body)
     }
 
+    pub fn send_schedule_reminder_email(
+        &self,
+        to: &str,
+        user_name: &str,
+        note_title: &str,
+        event_date: &str,
+    ) -> Result<()> {
+        let subject = format!("Schedule Reminder: {}", note_title);
+        let body = format!(
+            r#"
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background-color: #f9f9f9;">
+                <h2 style="color: #5bc0de; text-align: center;">Schedule Reminder</h2>
+                <p>Hello <strong>{}</strong>,</p>
+                <p>This is a reminder for your scheduled note <strong>tomorrow ({})</strong>.</p>
+                <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #ddd;">
+                    <p style="margin: 5px 0;"><strong>Note:</strong> {}</p>
+                    <p style="margin: 5px 0;"><strong>Date:</strong> {}</p>
+                </div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="https://ubucknepal.com/admin/profile/schedule" style="background-color: #5bc0de; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Schedule</a>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+            </div>
+            "#,
+            user_name, event_date, note_title, event_date
+        );
+        self.send_email(to, &subject, &body)
+    }
+
     pub fn send_broadcast_email(
         &self,
         to_list: Vec<String>,

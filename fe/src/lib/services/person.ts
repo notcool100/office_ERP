@@ -46,6 +46,13 @@ export const personService = {
         return response.json();
     },
 
+    async getMe(): Promise<Person> {
+        const response = await api.get('/persons/me');
+
+        if (!response.ok) throw new Error('Failed to fetch person');
+        return response.json();
+    },
+
     async getById(id: string): Promise<Person> {
         const response = await api.get(`/persons/${id}`);
 

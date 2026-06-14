@@ -70,7 +70,7 @@
         try {
             if (currentUser && currentUser.personId) {
                 // Load associated person
-                person = await personService.getById(currentUser.personId);
+                person = await personService.getMe();
 
                 // Initialize edit data
                 userEditData = {

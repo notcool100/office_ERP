@@ -51,10 +51,7 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
             "/permissions",
             permissions_routes().layer(rbac::require_permission("/admin/settings/permissions")),
         )
-        .nest(
-            "/persons",
-            person_routes().layer(rbac::require_permission("/admin/hr/person")),
-        )
+        .nest("/persons", person_routes())
         .nest(
             "/users",
             user_routes().layer(rbac::require_permission("/admin/settings/user")),
