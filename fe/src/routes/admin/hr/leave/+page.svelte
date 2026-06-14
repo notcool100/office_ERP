@@ -286,7 +286,7 @@
                             <td>
                                 {#if request.status === 'pending'}
                                     <div class="flex gap-2">
-                                        {#if canUpdateHere}
+                                        {#if isHRorAdmin && canUpdateHere}
                                             <button
                                                 class="btn btn-sm btn-success"
                                                 on:click={() =>
