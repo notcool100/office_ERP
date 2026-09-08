@@ -24,17 +24,10 @@ pub async fn create_employee(db: &Db, req: CreateEmployeeRequest) -> Result<Empl
         return Err(anyhow!("Person not found"));
     }
 
-    // Check if employee_id is already taken
-    let employee_id_exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM employees WHERE employee_id = $1)",
-    )
-    .bind(&req.employee_id)
-    .fetch_one(db)
-    .await?;
-
-    if employee_id_exists {
-        return Err(anyhow!("Employee ID already exists"));
-    }
+    let employee_id: String =
+        sqlx::query_scalar("SELECT 'EMP-' || LPAD(nextval('employee_id_seq')::text, 3, '0')")
+            .fetch_one(db)
+            .await?;
 
     let salary = req
         .salary
@@ -59,7 +52,7 @@ pub async fn create_employee(db: &Db, req: CreateEmployeeRequest) -> Result<Empl
         LEFT JOIN person_contacts pc ON pc.person_id = p.id
         "#,
     )
-    .bind(&req.employee_id)
+    .bind(&employee_id)
     .bind(req.person_id)
     .bind(req.department)
     .bind(req.position)

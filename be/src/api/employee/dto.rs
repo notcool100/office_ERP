@@ -5,7 +5,6 @@ use uuid::Uuid;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateEmployeeRequest {
-    pub employee_id: String,
     pub person_id: Uuid,
     pub department: Option<Uuid>,
     pub position: Option<Uuid>,

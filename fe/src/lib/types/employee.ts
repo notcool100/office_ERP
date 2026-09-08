@@ -17,7 +17,6 @@ export interface Employee {
 }
 
 export interface CreateEmployeeRequest {
-    employeeId: string;
     personId: string;
     department?: string;
     position?: string;

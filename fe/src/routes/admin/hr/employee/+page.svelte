@@ -58,7 +58,6 @@
     const navPath = '/admin/hr/employee';
 
     let formData = {
-        employeeId: '',
         personId: '',
         department: '',
         position: '',
@@ -90,7 +89,6 @@
         modalMode = 'create';
         selectedEmployee = null;
         formData = {
-            employeeId: '',
             personId: '',
             department: '',
             position: '',
@@ -106,7 +104,6 @@
         modalMode = 'edit';
         selectedEmployee = employee;
         formData = {
-            employeeId: employee.employeeId,
             personId: employee.personId,
             department: employee.department || '',
             position: employee.position || '',
@@ -353,19 +350,19 @@
 
             <form on:submit|preventDefault={handleSubmit} class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="form-control">
-                        <label class="label" for="employeeId">
-                            <span class="label-text">Employee ID</span>
-                        </label>
-                        <input
-                            id="employeeId"
-                            type="text"
-                            class="input input-bordered"
-                            bind:value={formData.employeeId}
-                            disabled={modalMode === 'edit'}
-                            placeholder="e.g. EMP-001"
-                            required />
-                    </div>
+                    {#if modalMode === 'edit' && selectedEmployee}
+                        <div class="form-control">
+                            <label class="label" for="employeeId">
+                                <span class="label-text">Employee ID</span>
+                            </label>
+                            <input
+                                id="employeeId"
+                                type="text"
+                                class="input input-bordered"
+                                value={selectedEmployee.employeeId}
+                                disabled />
+                        </div>
+                    {/if}
 
                     <div class="form-control">
                         <label class="label" for="personId">
