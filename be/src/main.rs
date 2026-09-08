@@ -35,6 +35,12 @@ async fn main() {
             );
         }
     };
+
+    if let Err(e) = sqlx::migrate!("./migrations").run(&db_pool).await {
+        tracing::error!("Failed to run database migrations: {}", e);
+        panic!("Critical: Failed to run database migrations: {}", e);
+    }
+
     let mailcow_config = MailcowConfig::from_env();
     if mailcow_config.is_none() {
         tracing::warn!(

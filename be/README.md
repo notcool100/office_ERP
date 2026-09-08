@@ -18,7 +18,13 @@ This directory contains the Rust API service built with [axum](https://crates.io
 
 ## Migrations
 
-This project uses `sqlx` for database migrations.
+This project uses `sqlx` for database migrations. Pending migrations run
+automatically on server startup (`sqlx::migrate!` in `main.rs`), including in
+the deployed Docker image — you don't need to run them manually after a
+deploy.
+
+For local development you can still apply them ahead of time without
+starting the server:
 
 1. **Install SQLx CLI** (if not already installed):
    ```bash
