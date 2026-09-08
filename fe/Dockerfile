@@ -9,7 +9,7 @@ ARG PUBLIC_API_URL
 ENV PUBLIC_API_URL=${PUBLIC_API_URL}
 
 RUN npm install -g pnpm
-COPY package.json pnpm-lock.yaml svelte.config.js tsconfig.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml svelte.config.js tsconfig.json ./
 RUN pnpm install
 COPY . .
 RUN pnpm run build
@@ -18,7 +18,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 RUN npm install -g pnpm
 COPY --from=builder /app/build ./build
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod
 
 EXPOSE 3110
