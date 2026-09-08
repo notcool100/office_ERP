@@ -23,7 +23,6 @@ import {
     Receipt,
     Search,
     Settings,
-    Shield,
     ShoppingCart,
     SquareUser,
     UserCheck,
@@ -69,26 +68,6 @@ export const adminShortcuts: Shortcut[] = [
                 action: 'Settings',
                 icon: Settings,
                 children: [
-                    {
-                        key: 'r',
-                        action: 'Role',
-                        icon: Shield,
-                        children: [
-                            {
-                                key: 'l',
-                                action: 'List',
-                                icon: Shield,
-                                handler: () => goto('/admin/settings/role'),
-                            },
-                            {
-                                key: 'a',
-                                action: 'Add',
-                                icon: UserPlus,
-                                handler: () =>
-                                    goto('/admin/settings/role/create'),
-                            },
-                        ],
-                    },
                     {
                         key: 'c',
                         action: 'Contact',

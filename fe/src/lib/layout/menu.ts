@@ -27,7 +27,6 @@ import {
     Plus,
     Receipt,
     Settings,
-    Shield,
     ShieldCheck,
     ShoppingCart,
     SquareUser,
@@ -89,31 +88,6 @@ export const menuList: MenuItem[] = [
         icon: Settings,
         color: 'text-accent',
         children: [
-            {
-                name: 'Role',
-                type: 'folder',
-                expanded: true,
-                icon: Shield,
-                color: 'text-accent',
-                shortcut: 'r',
-                children: [
-                    {
-                        name: 'List',
-                        type: 'file',
-                        icon: List,
-                        color: 'text-accent',
-                        url: '/admin/settings/role',
-                    },
-                    {
-                        name: 'Create',
-                        type: 'file',
-                        icon: Plus,
-                        color: 'text-accent',
-                        shortcut: 'a',
-                        url: '/admin/settings/role/create',
-                    },
-                ],
-            },
             {
                 name: 'Contact',
                 type: 'folder',
