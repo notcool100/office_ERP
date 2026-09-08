@@ -70,9 +70,9 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: ubuck
-      POSTGRES_PASSWORD: ubuck
-      POSTGRES_DB: ubuck
+      POSTGRES_USER: office
+      POSTGRES_PASSWORD: office
+      POSTGRES_DB: office
     ports:
       - 5432:5432
     volumes:
@@ -86,7 +86,7 @@ services:
       - 3117:3117
     environment:
       PORT: 3117
-      DATABASE_URL: postgres://ubuck:ubuck@db:5432/ubuck
+      DATABASE_URL: postgres://office:office@db:5432/office
     depends_on:
       - db
 

@@ -41,7 +41,7 @@ impl Mailer {
                 .unwrap()
                 .port(port)
                 .credentials(creds)
-                // Relax certificate verification for this specific setup where mail.ubucknepal.com
+                // Relax certificate verification for this specific setup where the mail relay's
                 // certificate might have issues when accessed via STARTTLS from the same machine.
                 .tls(lettre::transport::smtp::client::Tls::Required(
                     lettre::transport::smtp::client::TlsParameters::builder(host)

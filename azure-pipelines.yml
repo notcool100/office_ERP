@@ -177,7 +177,7 @@ stages:
 
         sudo systemctl stop office-be || true
 
-        TARGET_DIR="/var/www/ubuck-erp/be"
+        TARGET_DIR="/var/www/office-erp/be"
         sudo mkdir -p $TARGET_DIR
 
         sudo cp -r $(System.DefaultWorkingDirectory)/artifacts/backend/. $TARGET_DIR/
@@ -197,7 +197,7 @@ stages:
 
         sudo systemctl stop office-fe || true
 
-        TARGET_DIR="/var/www/ubuck-erp/fe"
+        TARGET_DIR="/var/www/office-erp/fe"
         sudo mkdir -p $TARGET_DIR
         sudo rm -rf $TARGET_DIR/*
 

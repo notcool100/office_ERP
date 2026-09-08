@@ -1,6 +1,6 @@
-# Deploying Ubuck ERP on VPS
+# Deploying Adya Technologies ERP on VPS
 
-This document outlines the steps to prepare your VPS and Azure DevOps environment for the Ubuck ERP application (Rust backend + SvelteKit frontend).
+This document outlines the steps to prepare your VPS and Azure DevOps environment for the Adya Technologies ERP application (Rust backend + SvelteKit frontend).
 
 ## 1. Azure DevOps Setup
 
@@ -20,15 +20,15 @@ SSH into your VPS and create the necessary directories:
 
 ```bash
 # Create main directory
-sudo mkdir -p /var/www/ubuck-erp
+sudo mkdir -p /var/www/office-erp
 
 # Create Backend and Frontend directories
-sudo mkdir -p /var/www/ubuck-erp/be
-sudo mkdir -p /var/www/ubuck-erp/fe
+sudo mkdir -p /var/www/office-erp/be
+sudo mkdir -p /var/www/office-erp/fe
 
 # Set ownership to your user initially (for manual setup) or www-data
-sudo chown -R www-data:www-data /var/www/ubuck-erp
-sudo chmod -R 755 /var/www/ubuck-erp
+sudo chown -R www-data:www-data /var/www/office-erp
+sudo chmod -R 755 /var/www/office-erp
 ```
 
 ### System Dependencies
@@ -44,46 +44,46 @@ sudo npm install -g pnpm
 ### Systemd Services
 
 #### Backend Service
-Create a file `/etc/systemd/system/ubuck-erp-backend.service`:
+Create a file `/etc/systemd/system/office-erp-backend.service`:
 
 **Note**: Do not include the word "ini" or any markdown formatting in the file. Just the text below.
 
 ```ini
 [Unit]
-Description=Ubuck ERP Backend (Rust)
+Description=Adya Technologies ERP Backend (Rust)
 After=network.target
 
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/ubuck-erp/be
+WorkingDirectory=/var/www/office-erp/be
 # Assuming the binary name is 'be'
-ExecStart=/var/www/ubuck-erp/be/be
+ExecStart=/var/www/office-erp/be/be
 Restart=always
 # The pipeline copies backend.env to .env in this directory
-EnvironmentFile=/var/www/ubuck-erp/be/.env
+EnvironmentFile=/var/www/office-erp/be/.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 #### Frontend Service
-Create a file `/etc/systemd/system/ubuck-erp-frontend.service`:
+Create a file `/etc/systemd/system/office-erp-frontend.service`:
 
 ```ini
 [Unit]
-Description=Ubuck ERP Frontend (SvelteKit Node Adapter)
+Description=Adya Technologies ERP Frontend (SvelteKit Node Adapter)
 After=network.target
 
 [Service]
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/ubuck-erp/fe
+WorkingDirectory=/var/www/office-erp/fe
 # node_modules and build folder are in this directory
 ExecStart=/usr/bin/node build/index.js
 Restart=always
 # The pipeline copies frontend.env to .env in this directory
-EnvironmentFile=/var/www/ubuck-erp/fe/.env
+EnvironmentFile=/var/www/office-erp/fe/.env
 # PORT Configuration
 Environment=PORT=3110
 Environment=ORIGIN=http://localhost:3110

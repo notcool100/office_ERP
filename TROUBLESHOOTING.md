@@ -1,4 +1,4 @@
-# Troubleshooting Guide — Ubuck ERP Deployment
+# Troubleshooting Guide — Adya Technologies ERP Deployment
 
 ## Architecture Overview
 
@@ -45,15 +45,15 @@ Browser → :3110 (Nginx) → / → :3111 (SvelteKit frontend)
 
 ```bash
 # Check if services are running
-sudo systemctl status ubuck-erp-frontend --no-pager
-sudo systemctl status ubuck-erp-backend --no-pager
+sudo systemctl status office-erp-frontend --no-pager
+sudo systemctl status office-erp-backend --no-pager
 
 # Check which ports are actually listening
 sudo ss -tlnp | grep -E '3110|3111|3117'
 
 # Check logs
-sudo journalctl -u ubuck-erp-frontend -n 30 --no-pager
-sudo journalctl -u ubuck-erp-backend -n 30 --no-pager
+sudo journalctl -u office-erp-frontend -n 30 --no-pager
+sudo journalctl -u office-erp-backend -n 30 --no-pager
 ```
 
 **Fix:** Use `127.0.0.1` instead of `localhost` in Nginx config:
@@ -78,13 +78,13 @@ sudo ss -tlnp | grep 3110
 sudo nginx -t
 
 # Is the site enabled?
-ls -la /etc/nginx/sites-enabled/ubuck-erp
+ls -la /etc/nginx/sites-enabled/office-erp
 ```
 
 **Fix:**
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/ubuck-erp /etc/nginx/sites-enabled/ubuck-erp
+sudo ln -sf /etc/nginx/sites-available/office-erp /etc/nginx/sites-enabled/office-erp
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -100,7 +100,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 # On VPS, after deploying new build:
-sudo systemctl restart ubuck-erp-frontend
+sudo systemctl restart office-erp-frontend
 ```
 
 ---
@@ -114,8 +114,8 @@ sudo systemctl restart ubuck-erp-frontend
 ```bash
 export TERM=xterm
 # Then retry, OR create the override file directly:
-sudo mkdir -p /etc/systemd/system/ubuck-erp-frontend.service.d
-sudo bash -c 'cat > /etc/systemd/system/ubuck-erp-frontend.service.d/override.conf << EOF
+sudo mkdir -p /etc/systemd/system/office-erp-frontend.service.d
+sudo bash -c 'cat > /etc/systemd/system/office-erp-frontend.service.d/override.conf << EOF
 [Service]
 Environment=PORT=3111
 EOF'
@@ -131,8 +131,8 @@ Run this to check everything at once:
 ```bash
 echo "=== Nginx ===" && sudo nginx -t 2>&1 | tail -1
 echo "=== Ports ===" && sudo ss -tlnp | grep -E '3110|3111|3117'
-echo "=== Frontend ===" && sudo systemctl is-active ubuck-erp-frontend
-echo "=== Backend ===" && sudo systemctl is-active ubuck-erp-backend
+echo "=== Frontend ===" && sudo systemctl is-active office-erp-frontend
+echo "=== Backend ===" && sudo systemctl is-active office-erp-backend
 echo "=== Nginx ===" && sudo systemctl is-active nginx
 echo "=== API Health ===" && curl -s http://127.0.0.1:3117/ | head -1
 echo "=== Frontend Health ===" && curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3111/
@@ -143,8 +143,8 @@ echo "=== Frontend Health ===" && curl -s -o /dev/null -w "%{http_code}" http://
 ## Restart Everything
 
 ```bash
-sudo systemctl restart ubuck-erp-backend
-sudo systemctl restart ubuck-erp-frontend
+sudo systemctl restart office-erp-backend
+sudo systemctl restart office-erp-frontend
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -154,10 +154,10 @@ sudo nginx -t && sudo systemctl reload nginx
 
 | File | Purpose |
 |------|---------|
-| `/etc/nginx/sites-available/ubuck-erp` | Nginx reverse proxy config |
-| `/etc/systemd/system/ubuck-erp-frontend.service` | Frontend systemd service |
-| `/etc/systemd/system/ubuck-erp-frontend.service.d/override.conf` | PORT=3111 override |
-| `/etc/systemd/system/ubuck-erp-backend.service` | Backend systemd service |
-| `/var/www/ubuck-erp/fe/` | Deployed frontend files |
-| `/var/www/ubuck-erp/fe/.env` | Frontend runtime env |
-| `/var/www/ubuck-erp/be/` | Deployed backend binary + .env |
+| `/etc/nginx/sites-available/office-erp` | Nginx reverse proxy config |
+| `/etc/systemd/system/office-erp-frontend.service` | Frontend systemd service |
+| `/etc/systemd/system/office-erp-frontend.service.d/override.conf` | PORT=3111 override |
+| `/etc/systemd/system/office-erp-backend.service` | Backend systemd service |
+| `/var/www/office-erp/fe/` | Deployed frontend files |
+| `/var/www/office-erp/fe/.env` | Frontend runtime env |
+| `/var/www/office-erp/be/` | Deployed backend binary + .env |
