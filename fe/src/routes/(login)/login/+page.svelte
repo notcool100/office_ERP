@@ -3,7 +3,7 @@
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
-    import { Building2 } from 'lucide-svelte';
+    import logo from '$lib/images/logo.jpeg';
 
     let username = '';
     let password = '';
@@ -39,10 +39,7 @@
 
         <!-- Logo -->
         <div class="flex flex-col items-center mb-8">
-            <div class="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-3">
-                <Building2 size={24} class="text-primary-content" />
-            </div>
-            <h1 class="text-2xl font-bold text-base-content">Office ERP</h1>
+            <img src={logo} alt="Adya Technologies" class="h-14 w-auto rounded-lg mb-3" />
             <p class="text-sm text-base-content/50 mt-1">Sign in to your workspace</p>
         </div>
 

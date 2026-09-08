@@ -5,8 +5,9 @@
     import type { MenuItem } from '$lib/layout/types';
     import { goto } from '$app/navigation';
     import { userStore } from '$lib/stores/user';
-    import { LogOut, ChevronDown, ChevronRight, Building2, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
+    import { LogOut, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-svelte';
     import { authService } from '$lib/services/auth.service';
+    import logoIcon from '$lib/images/logo-icon.png';
 
     let { open = $bindable(true) } = $props();
 
@@ -69,9 +70,7 @@
 
     <!-- Brand header -->
     <div class="h-14 flex items-center gap-3 px-3 border-b border-base-300 shrink-0">
-        <div class="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Building2 size={15} class="text-primary-content" />
-        </div>
+        <img src={logoIcon} alt="Adya Technologies" class="w-7 h-7 shrink-0" />
         {#if open}
             <span class="font-bold text-base tracking-tight truncate">Office ERP</span>
         {/if}
