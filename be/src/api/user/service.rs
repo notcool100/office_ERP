@@ -102,10 +102,12 @@ pub async fn create_user(
     let user_name = user.user_name.clone();
     let user_name_for_log = user_name.clone();
     let temp_pass = req.password.clone();
+    let db_clone = db.clone();
     tokio::spawn(async move {
+        let company_name = crate::api::company_settings::service::get_company_name(&db_clone).await;
         let send_result = tokio::task::spawn_blocking(move || {
             let mailer = crate::api::user::mailer::Mailer::new();
-            mailer.send_welcome_email(&email, &user_name, &temp_pass)
+            mailer.send_welcome_email(&email, &user_name, &temp_pass, &company_name)
         })
         .await;
 

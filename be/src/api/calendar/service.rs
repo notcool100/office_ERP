@@ -186,9 +186,11 @@ pub async fn create_event(
                 let subject = format!("Company Notice: {}", event_title.as_str());
                 let title = event_title.clone();
                 let content = event_desc.clone();
+                let company_name =
+                    crate::api::company_settings::service::get_company_name(&pool_clone).await;
                 let send_result = tokio::task::spawn_blocking(move || {
                     let mailer = Mailer::new();
-                    mailer.send_broadcast_email(emails, &subject, &title, &content)
+                    mailer.send_broadcast_email(emails, &subject, &title, &content, &company_name)
                 })
                 .await;
 
@@ -226,9 +228,17 @@ pub async fn create_event(
                     let subject = format!("Department Notice: {}", event_title.as_str());
                     let title = event_title.clone();
                     let content = event_desc.clone();
+                    let company_name =
+                        crate::api::company_settings::service::get_company_name(&pool_clone).await;
                     let send_result = tokio::task::spawn_blocking(move || {
                         let mailer = Mailer::new();
-                        mailer.send_broadcast_email(emails, &subject, &title, &content)
+                        mailer.send_broadcast_email(
+                            emails,
+                            &subject,
+                            &title,
+                            &content,
+                            &company_name,
+                        )
                     })
                     .await;
 

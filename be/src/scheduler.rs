@@ -84,15 +84,18 @@ async fn send_due_date_reminders(pool: &PgPool) {
         tomorrow
     );
 
+    let company_name = crate::api::company_settings::service::get_company_name(pool).await;
+
     for card in cards {
         let to = card.assignee_email.clone();
         let name = card.assignee_name.clone();
         let title = card.title.clone();
         let project = card.project_name.clone();
         let due = card.due_date.to_string();
+        let company = company_name.clone();
         let result = tokio::task::spawn_blocking(move || {
             crate::api::user::mailer::Mailer::new()
-                .send_due_date_reminder_email(&to, &name, &title, &project, &due)
+                .send_due_date_reminder_email(&to, &name, &title, &project, &due, &company)
         })
         .await;
         if let Ok(Err(e)) = result {
@@ -143,14 +146,17 @@ async fn send_schedule_reminders(pool: &PgPool) {
         tomorrow
     );
 
+    let company_name = crate::api::company_settings::service::get_company_name(pool).await;
+
     for note in notes {
         let to = note.user_email.clone();
         let name = note.user_name.clone();
         let title = note.title.clone();
         let date = note.event_date.to_string();
+        let company = company_name.clone();
         let result = tokio::task::spawn_blocking(move || {
             crate::api::user::mailer::Mailer::new()
-                .send_schedule_reminder_email(&to, &name, &title, &date)
+                .send_schedule_reminder_email(&to, &name, &title, &date, &company)
         })
         .await;
         if let Ok(Err(e)) = result {

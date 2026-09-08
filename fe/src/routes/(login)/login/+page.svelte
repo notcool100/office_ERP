@@ -4,15 +4,26 @@
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import logo from '$lib/images/logo.jpeg';
+    import { companySettingsService } from '$lib/services/company-settings';
+    import { buildApiUrl } from '$lib/services/api';
 
     let username = '';
     let password = '';
     let message = '';
     let loading = false;
     let usernameInput: HTMLInputElement | null = null;
+    let customLogoUrl: string | null = null;
 
     onMount(() => {
         usernameInput?.focus();
+        companySettingsService
+            .getSettings()
+            .then((settings) => {
+                if (settings.logo_url) {
+                    customLogoUrl = buildApiUrl(settings.logo_url);
+                }
+            })
+            .catch(() => {});
     });
 
     async function handleSubmit() {
@@ -39,7 +50,10 @@
 
         <!-- Logo -->
         <div class="flex flex-col items-center mb-8">
-            <img src={logo} alt="Adya Technologies" class="h-14 w-auto rounded-lg mb-3" />
+            <img
+                src={customLogoUrl ?? logo}
+                alt="Adya Technologies"
+                class="h-14 w-auto rounded-lg mb-3" />
             <p class="text-sm text-base-content/50 mt-1">Sign in to your workspace</p>
         </div>
 

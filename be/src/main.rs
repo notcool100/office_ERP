@@ -41,6 +41,10 @@ async fn main() {
         panic!("Critical: Failed to run database migrations: {}", e);
     }
 
+    if let Err(e) = be::api::company_settings::service::ensure_default_branding(&db_pool).await {
+        tracing::warn!("Failed to seed default company branding: {}", e);
+    }
+
     let mailcow_config = MailcowConfig::from_env();
     if mailcow_config.is_none() {
         tracing::warn!(

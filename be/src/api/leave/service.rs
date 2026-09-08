@@ -62,6 +62,8 @@ pub async fn create_leave_request(
         )
         .await;
         if !recipients.is_empty() {
+            let company_name =
+                crate::api::company_settings::service::get_company_name(&db_clone).await;
             let send_result = tokio::task::spawn_blocking(move || {
                 Mailer::new().send_leave_submitted_email(
                     recipients,
@@ -70,6 +72,7 @@ pub async fn create_leave_request(
                     &start,
                     &end,
                     &reason,
+                    &company_name,
                 )
             })
             .await;
@@ -266,6 +269,8 @@ pub async fn approve_leave(
         .ok()
         .flatten();
         if let Some(to) = email {
+            let company_name =
+                crate::api::company_settings::service::get_company_name(&db_clone).await;
             let send_result = tokio::task::spawn_blocking(move || {
                 Mailer::new().send_leave_decision_email(
                     &to,
@@ -275,6 +280,7 @@ pub async fn approve_leave(
                     &end,
                     true,
                     notes.as_deref(),
+                    &company_name,
                 )
             })
             .await;
@@ -346,6 +352,8 @@ pub async fn reject_leave(
         .ok()
         .flatten();
         if let Some(to) = email {
+            let company_name =
+                crate::api::company_settings::service::get_company_name(&db_clone).await;
             let send_result = tokio::task::spawn_blocking(move || {
                 Mailer::new().send_leave_decision_email(
                     &to,
@@ -355,6 +363,7 @@ pub async fn reject_leave(
                     &end,
                     false,
                     notes.as_deref(),
+                    &company_name,
                 )
             })
             .await;

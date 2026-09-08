@@ -2,6 +2,7 @@ pub mod attendance;
 pub mod payroll;
 pub mod campaigns;
 pub mod client_management;
+pub mod company_settings;
 pub mod content_calendar;
 pub mod marketing_reports;
 pub mod media_library;

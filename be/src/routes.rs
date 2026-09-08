@@ -4,6 +4,7 @@ use crate::api::{
     attendance::routes::attendance_routes, auth::routes::auth_routes,
     calendar::routes::calendar_routes, campaigns::routes::campaign_routes,
     client_management::routes::client_management_routes,
+    company_settings::routes::{company_settings_admin_routes, company_settings_public_routes},
     content_calendar::routes::content_calendar_routes,
     marketing_reports::routes::marketing_report_routes,
     media_library::routes::media_library_routes,
@@ -82,6 +83,10 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
             "/integrations/github",
             github_connection_routes().layer(rbac::require_permission("/admin/settings/connectors")),
         )
+        .nest(
+            "/company-settings/manage",
+            company_settings_admin_routes().layer(rbac::require_permission("/admin/settings/company")),
+        )
         .nest("/navigation", navigation_routes())
         .nest(
             "/permissions",
@@ -111,6 +116,7 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
     Router::new()
         .route("/", get(health_check_handler))
         .nest("/auth", auth_routes())
+        .nest("/company-settings", company_settings_public_routes())
         .merge(ws_route)
         .merge(protected_routes)
 }

@@ -76,14 +76,20 @@ impl Mailer {
         }
     }
 
-    pub fn send_welcome_email(&self, to: &str, username: &str, temp_pass: &str) -> Result<()> {
-        let subject = "Welcome to Adya Technologies!";
+    pub fn send_welcome_email(
+        &self,
+        to: &str,
+        username: &str,
+        temp_pass: &str,
+        company_name: &str,
+    ) -> Result<()> {
+        let subject = format!("Welcome to {company_name}!");
         let body = format!(
             r#"
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background-color: #f9f9f9;">
                 <h2 style="color: #333; text-align: center;">Welcome to the Team!</h2>
                 <p>Hello <strong>{}</strong>,</p>
-                <p>Your account for <strong>Adya Technologies</strong> has been successfully created.</p>
+                <p>Your account for <strong>{company_name}</strong> has been successfully created.</p>
                 <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #ddd;">
                     <p style="margin: 0;"><strong>Username:</strong> {}</p>
                     <p style="margin: 0;"><strong>Temporary Password:</strong> <span style="color: #d9534f; font-family: monospace;">{}</span></p>
@@ -93,13 +99,13 @@ impl Mailer {
                     <a href="https://office.adyatech.com.np/login" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to ERP</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             username, username, temp_pass
         );
 
-        self.send_email(to, subject, &body)
+        self.send_email(to, &subject, &body)
     }
 
     pub fn send_task_assignment_email(
@@ -109,6 +115,7 @@ impl Mailer {
         task_title: &str,
         project_name: &str,
         priority: &str,
+        company_name: &str,
     ) -> Result<()> {
         let subject = format!("New Task Assigned: {}", task_title);
         let body = format!(
@@ -126,7 +133,7 @@ impl Mailer {
                     <a href="https://office.adyatech.com.np/admin/projects" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Task</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             assignee_name, project_name, task_title, priority
@@ -135,6 +142,7 @@ impl Mailer {
         self.send_email(to, &subject, &body)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn send_leave_submitted_email(
         &self,
         to_list: Vec<String>,
@@ -143,6 +151,7 @@ impl Mailer {
         start_date: &str,
         end_date: &str,
         reason: &str,
+        company_name: &str,
     ) -> Result<()> {
         let subject = format!("Leave Request from {}", employee_name);
         let body = format!(
@@ -161,7 +170,7 @@ impl Mailer {
                     <a href="https://office.adyatech.com.np/admin/leave" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Review Request</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             employee_name, leave_type, start_date, end_date, reason
@@ -174,6 +183,7 @@ impl Mailer {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn send_leave_decision_email(
         &self,
         to: &str,
@@ -183,6 +193,7 @@ impl Mailer {
         end_date: &str,
         approved: bool,
         notes: Option<&str>,
+        company_name: &str,
     ) -> Result<()> {
         let (status_label, color) = if approved {
             ("Approved", "#5cb85c")
@@ -207,7 +218,7 @@ impl Mailer {
                     {}
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             color, status_label, employee_name, color, status_label.to_lowercase(),
@@ -222,6 +233,7 @@ impl Mailer {
         member_name: &str,
         project_name: &str,
         role: &str,
+        company_name: &str,
     ) -> Result<()> {
         let subject = format!("You've been added to project: {}", project_name);
         let body = format!(
@@ -234,7 +246,7 @@ impl Mailer {
                     <a href="https://office.adyatech.com.np/admin/projects" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Project</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             member_name, project_name, role
@@ -249,6 +261,7 @@ impl Mailer {
         task_title: &str,
         project_name: &str,
         due_date: &str,
+        company_name: &str,
     ) -> Result<()> {
         let subject = format!("Task Due Tomorrow: {}", task_title);
         let body = format!(
@@ -266,7 +279,7 @@ impl Mailer {
                     <a href="https://office.adyatech.com.np/admin/projects" style="background-color: #f0ad4e; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Task</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             assignee_name, due_date, task_title, project_name, due_date
@@ -280,6 +293,7 @@ impl Mailer {
         user_name: &str,
         note_title: &str,
         event_date: &str,
+        company_name: &str,
     ) -> Result<()> {
         let subject = format!("Schedule Reminder: {}", note_title);
         let body = format!(
@@ -296,7 +310,7 @@ impl Mailer {
                     <a href="https://office.adyatech.com.np/admin/profile/schedule" style="background-color: #5bc0de; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Schedule</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from {company_name}. Please do not reply.</p>
             </div>
             "#,
             user_name, event_date, note_title, event_date
@@ -310,6 +324,7 @@ impl Mailer {
         subject: &str,
         title: &str,
         content: &str,
+        company_name: &str,
     ) -> Result<()> {
         let body = format!(
             r#"
@@ -319,7 +334,7 @@ impl Mailer {
                     {}
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an official announcement from Adya Technologies.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an official announcement from {company_name}.</p>
             </div>
             "#,
             title, content

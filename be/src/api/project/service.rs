@@ -414,12 +414,15 @@ pub async fn add_project_member(
                 .fetch_one(&pool_clone)
                 .await
         {
+            let company_name =
+                crate::api::company_settings::service::get_company_name(&pool_clone).await;
             let send_result = tokio::task::spawn_blocking(move || {
                 crate::api::user::mailer::Mailer::new().send_project_member_added_email(
                     &to,
                     &member_name,
                     &project_name,
                     &role_label,
+                    &company_name,
                 )
             })
             .await;
@@ -738,6 +741,8 @@ pub async fn create_card(
                     let task_title = card_clone.title.clone();
                     let project_name = project.clone();
                     let priority = card_clone.priority.clone();
+                    let company_name =
+                        crate::api::company_settings::service::get_company_name(&pool_clone).await;
                     let send_result = tokio::task::spawn_blocking(move || {
                         let mailer = crate::api::user::mailer::Mailer::new();
                         mailer.send_task_assignment_email(
@@ -746,6 +751,7 @@ pub async fn create_card(
                             &task_title,
                             &project_name,
                             &priority,
+                            &company_name,
                         )
                     })
                     .await;
@@ -1152,6 +1158,8 @@ pub async fn update_card(
                     let task_title = card_clone.title.clone();
                     let project_name = project.clone();
                     let priority = card_clone.priority.clone();
+                    let company_name =
+                        crate::api::company_settings::service::get_company_name(&pool_clone).await;
                     let send_result = tokio::task::spawn_blocking(move || {
                         let mailer = crate::api::user::mailer::Mailer::new();
                         mailer.send_task_assignment_email(
@@ -1160,6 +1168,7 @@ pub async fn update_card(
                             &task_title,
                             &project_name,
                             &priority,
+                            &company_name,
                         )
                     })
                     .await;
