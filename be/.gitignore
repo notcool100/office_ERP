@@ -8,7 +8,7 @@
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
 
 # Thumbnails
 ._*
@@ -241,6 +241,8 @@ x86/
 [Aa][Rr][Mm]64/
 bld/
 [Bb]in/
+!src/bin/
+!src/bin/**
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
