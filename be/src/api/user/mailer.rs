@@ -77,23 +77,23 @@ impl Mailer {
     }
 
     pub fn send_welcome_email(&self, to: &str, username: &str, temp_pass: &str) -> Result<()> {
-        let subject = "Welcome to ubuck ERP!";
+        let subject = "Welcome to Adya Technologies!";
         let body = format!(
             r#"
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px; background-color: #f9f9f9;">
                 <h2 style="color: #333; text-align: center;">Welcome to the Team!</h2>
                 <p>Hello <strong>{}</strong>,</p>
-                <p>Your account for the <strong>ubuck ERP</strong> has been successfully created.</p>
+                <p>Your account for <strong>Adya Technologies</strong> has been successfully created.</p>
                 <div style="background-color: #fff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #ddd;">
                     <p style="margin: 0;"><strong>Username:</strong> {}</p>
                     <p style="margin: 0;"><strong>Temporary Password:</strong> <span style="color: #d9534f; font-family: monospace;">{}</span></p>
                 </div>
                 <p>Please log in and change your password immediately for security.</p>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://ubucknepal.com/login" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to ERP</a>
+                    <a href="https://office.adyatech.com.np/login" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login to ERP</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             username, username, temp_pass
@@ -123,10 +123,10 @@ impl Mailer {
                 </div>
                 <p>Please review the task details and update the status accordingly.</p>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://ubucknepal.com/admin/projects" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Task</a>
+                    <a href="https://office.adyatech.com.np/admin/projects" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Task</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             assignee_name, project_name, task_title, priority
@@ -158,10 +158,10 @@ impl Mailer {
                     <p style="margin: 5px 0;"><strong>Reason:</strong> {}</p>
                 </div>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://ubucknepal.com/admin/leave" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Review Request</a>
+                    <a href="https://office.adyatech.com.np/admin/leave" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Review Request</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             employee_name, leave_type, start_date, end_date, reason
@@ -207,7 +207,7 @@ impl Mailer {
                     {}
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             color, status_label, employee_name, color, status_label.to_lowercase(),
@@ -231,10 +231,10 @@ impl Mailer {
                 <p>Hello <strong>{}</strong>,</p>
                 <p>You have been added to the project <strong>{}</strong> as a <strong style="text-transform: capitalize;">{}</strong>.</p>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://ubucknepal.com/admin/projects" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Project</a>
+                    <a href="https://office.adyatech.com.np/admin/projects" style="background-color: #0275d8; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Project</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             member_name, project_name, role
@@ -263,10 +263,10 @@ impl Mailer {
                     <p style="margin: 5px 0;"><strong>Due Date:</strong> {}</p>
                 </div>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://ubucknepal.com/admin/projects" style="background-color: #f0ad4e; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Task</a>
+                    <a href="https://office.adyatech.com.np/admin/projects" style="background-color: #f0ad4e; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Task</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             assignee_name, due_date, task_title, project_name, due_date
@@ -293,10 +293,10 @@ impl Mailer {
                     <p style="margin: 5px 0;"><strong>Date:</strong> {}</p>
                 </div>
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://ubucknepal.com/admin/profile/schedule" style="background-color: #5bc0de; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Schedule</a>
+                    <a href="https://office.adyatech.com.np/admin/profile/schedule" style="background-color: #5bc0de; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Schedule</a>
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from ubuck ERP. Please do not reply.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an automated message from Adya Technologies. Please do not reply.</p>
             </div>
             "#,
             user_name, event_date, note_title, event_date
@@ -319,7 +319,7 @@ impl Mailer {
                     {}
                 </div>
                 <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="font-size: 12px; color: #777; text-align: center;">This is an official announcement from ubuck ERP.</p>
+                <p style="font-size: 12px; color: #777; text-align: center;">This is an official announcement from Adya Technologies.</p>
             </div>
             "#,
             title, content
