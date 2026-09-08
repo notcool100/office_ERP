@@ -402,6 +402,44 @@
         }
     }
 
+    let draggedCard: Card | null = null;
+    let dragOverColumnId: string | null = null;
+
+    function handleCardDragStart(event: DragEvent, card: Card) {
+        if (!canUpdateCards) {
+            event.preventDefault();
+            return;
+        }
+        draggedCard = card;
+        event.dataTransfer?.setData('text/plain', card.id);
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleCardDragEnd() {
+        draggedCard = null;
+        dragOverColumnId = null;
+    }
+
+    function handleColumnDragOver(event: DragEvent, columnId: string) {
+        if (!draggedCard) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        dragOverColumnId = columnId;
+    }
+
+    function handleColumnDragLeave(columnId: string) {
+        if (dragOverColumnId === columnId) dragOverColumnId = null;
+    }
+
+    async function handleColumnDrop(event: DragEvent, columnId: string) {
+        event.preventDefault();
+        dragOverColumnId = null;
+        const card = draggedCard;
+        draggedCard = null;
+        if (!card || card.column_id === columnId) return;
+        await moveCard(card, columnId);
+    }
+
     async function deleteCard(card: Card) {
         if (!confirm(`Delete card ${card.card_key}?`)) {
             return;
@@ -844,7 +882,14 @@
                         class="grid gap-4"
                         style={`grid-template-columns: repeat(${board.columns.length}, minmax(240px, 1fr));`}>
                     {#each board.columns as column}
-                        <div class="bg-base-200 rounded-lg p-3 space-y-3">
+                        <div
+                            class="bg-base-200 rounded-lg p-3 space-y-3 transition-colors"
+                            class:ring-2={dragOverColumnId === column.id}
+                            class:ring-primary={dragOverColumnId === column.id}
+                            role="list"
+                            on:dragover={(e) => handleColumnDragOver(e, column.id)}
+                            on:dragleave={() => handleColumnDragLeave(column.id)}
+                            on:drop={(e) => handleColumnDrop(e, column.id)}>
                             <div class="flex items-center justify-between">
                                 <h3 class="font-semibold">{column.name}</h3>
                                 <button
@@ -862,7 +907,14 @@
                                     </div>
                                 {:else}
                                     {#each cardsForColumn(column.id) as card}
-                                        <div class="card bg-base-100 border border-base-300 shadow-sm">
+                                        <div
+                                            class="card bg-base-100 border border-base-300 shadow-sm transition-opacity"
+                                            class:opacity-40={draggedCard?.id === card.id}
+                                            class:cursor-move={canUpdateCards}
+                                            role="listitem"
+                                            draggable={canUpdateCards}
+                                            on:dragstart={(e) => handleCardDragStart(e, card)}
+                                            on:dragend={handleCardDragEnd}>
                                             <div class="card-body p-3 space-y-2">
                                                 <div class="flex items-start justify-between gap-2">
                                                     <div>
