@@ -8,6 +8,11 @@ export interface AttendanceRecord {
     totalHours?: number;
     status: string;
     notes?: string;
+    checkInImage?: string;
+    checkInLat?: number;
+    checkInLong?: number;
+    checkOutLat?: number;
+    checkOutLong?: number;
 }
 
 export interface CheckInRequest {
@@ -21,6 +26,9 @@ export interface CheckInRequest {
 
 export interface CheckOutRequest {
     notes?: string;
+    latitude?: number;
+    longitude?: number;
+    method?: string;
 }
 
 export interface ListAttendanceResponse {

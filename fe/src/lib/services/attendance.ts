@@ -8,11 +8,20 @@ import type {
     AttendanceSummary
 } from '$lib/types/attendance';
 
+async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+    try {
+        const body = await res.json();
+        return body?.error || body?.message || fallback;
+    } catch {
+        return fallback;
+    }
+}
+
 export async function checkIn(data: CheckInRequest): Promise<AttendanceRecord> {
     const res = await api.post('/attendance/check-in', data);
 
     if (!res.ok) {
-        throw new Error('Failed to check in');
+        throw new Error(await readErrorMessage(res, 'Failed to check in'));
     }
 
     return await res.json();
@@ -22,7 +31,7 @@ export async function checkOut(employeeId: string, data?: CheckOutRequest): Prom
     const res = await api.post(`/attendance/check-out/${employeeId}`, data ?? {});
 
     if (!res.ok) {
-        throw new Error('Failed to check out');
+        throw new Error(await readErrorMessage(res, 'Failed to check out'));
     }
 
     return await res.json();

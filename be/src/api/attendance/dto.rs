@@ -17,6 +17,9 @@ pub struct CheckInRequest {
 #[serde(rename_all = "camelCase")]
 pub struct CheckOutRequest {
     pub notes: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub method: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -34,6 +37,8 @@ pub struct AttendanceResponse {
     pub check_in_image: Option<String>,
     pub check_in_lat: Option<f64>,
     pub check_in_long: Option<f64>,
+    pub check_out_lat: Option<f64>,
+    pub check_out_long: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -19,6 +19,9 @@ pub struct AttendanceRecord {
     pub check_in_method: String,
     pub check_in_lat: Option<sqlx::types::BigDecimal>,
     pub check_in_long: Option<sqlx::types::BigDecimal>,
+    pub check_out_lat: Option<sqlx::types::BigDecimal>,
+    pub check_out_long: Option<sqlx::types::BigDecimal>,
+    pub check_out_method: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -38,4 +41,7 @@ pub struct AttendanceWithEmployee {
     pub check_in_method: String,
     pub check_in_lat: Option<sqlx::types::BigDecimal>,
     pub check_in_long: Option<sqlx::types::BigDecimal>,
+    pub check_out_lat: Option<sqlx::types::BigDecimal>,
+    pub check_out_long: Option<sqlx::types::BigDecimal>,
+    pub check_out_method: Option<String>,
 }

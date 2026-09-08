@@ -1,7 +1,10 @@
 use crate::{
-    api::attendance::dto::{
-        AttendanceResponse, AttendanceSummary, CheckInRequest, CheckOutRequest,
-        ListAttendanceQuery, ListAttendanceResponse,
+    api::{
+        attendance::dto::{
+            AttendanceResponse, AttendanceSummary, CheckInRequest, CheckOutRequest,
+            ListAttendanceQuery, ListAttendanceResponse,
+        },
+        company_settings::service as company_settings_service,
     },
     db::Db,
     models::attendance::AttendanceWithEmployee,
@@ -12,9 +15,80 @@ use sqlx::types::BigDecimal;
 use std::str::FromStr;
 use uuid::Uuid;
 
+/// Maximum allowed distance (in meters) between a face check-in/check-out
+/// and the office location configured in Company Settings.
+const MAX_GEOFENCE_METERS: f64 = 300.0;
+
+/// Great-circle distance between two lat/long points, in meters.
+fn haversine_distance_meters(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
+    const EARTH_RADIUS_METERS: f64 = 6_371_000.0;
+
+    let lat1_rad = lat1.to_radians();
+    let lat2_rad = lat2.to_radians();
+    let delta_lat = (lat2 - lat1).to_radians();
+    let delta_lon = (lon2 - lon1).to_radians();
+
+    let a = (delta_lat / 2.0).sin().powi(2)
+        + lat1_rad.cos() * lat2_rad.cos() * (delta_lon / 2.0).sin().powi(2);
+    let c = 2.0 * a.sqrt().asin();
+
+    EARTH_RADIUS_METERS * c
+}
+
+/// Enforces that a face-recognition check-in/check-out happens within
+/// MAX_GEOFENCE_METERS of the office location configured in Company
+/// Settings. Manual (non-FACE) entries are left untouched since those are
+/// entered by HR/admin staff, not captured at the employee's location.
+async fn enforce_geofence(
+    db: &Db,
+    method: &str,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+) -> Result<()> {
+    if !method.eq_ignore_ascii_case("FACE") {
+        return Ok(());
+    }
+
+    let settings = company_settings_service::get_settings(db)
+        .await
+        .map_err(|_| anyhow!("Office location is not configured. Please contact an administrator."))?;
+
+    let (office_lat, office_long) = match (settings.latitude, settings.longitude) {
+        (Some(lat), Some(long)) => (lat, long),
+        _ => {
+            return Err(anyhow!(
+                "Office location is not configured. Please contact an administrator."
+            ));
+        }
+    };
+
+    let (lat, long) = match (latitude, longitude) {
+        (Some(lat), Some(long)) => (lat, long),
+        _ => {
+            return Err(anyhow!(
+                "Location access is required for face check-in/check-out. Please enable location services and try again."
+            ));
+        }
+    };
+
+    let distance = haversine_distance_meters(lat, long, office_lat, office_long);
+    if distance > MAX_GEOFENCE_METERS {
+        return Err(anyhow!(
+            "You are {:.0}m away from the office. You must be within {:.0}m to use face check-in/check-out.",
+            distance,
+            MAX_GEOFENCE_METERS
+        ));
+    }
+
+    Ok(())
+}
+
 pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse> {
     let now_utc = Utc::now();
     let today = now_utc.with_timezone(&nepal_offset()).date_naive();
+    let method = req.method.clone().unwrap_or_else(|| "MANUAL".to_string());
+
+    enforce_geofence(db, &method, req.latitude, req.longitude).await?;
 
     // Lookup employee UUID from string code
     let employee_uuid =
@@ -52,7 +126,8 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
                CONCAT(p.first_name, ' ', p.last_name) as employee_name,
                na.date, na.check_in, na.check_out, na.total_hours,
                na.status, na.notes, na.created_at, na.updated_at,
-               na.check_in_image, na.check_in_method, na.check_in_lat, na.check_in_long
+               na.check_in_image, na.check_in_method, na.check_in_lat, na.check_in_long,
+               na.check_out_lat, na.check_out_long, na.check_out_method
         FROM new_attendance na
         JOIN employees e ON e.id = na.employee_id
         JOIN persons p ON p.id = e.person_id
@@ -62,7 +137,7 @@ pub async fn check_in(db: &Db, req: CheckInRequest) -> Result<AttendanceResponse
     .bind(today)
     .bind(&req.notes)
     .bind(&req.image)
-    .bind(req.method.unwrap_or_else(|| "MANUAL".to_string()))
+    .bind(&method)
     .bind(
         req.latitude
             .and_then(|l| BigDecimal::from_str(&l.to_string()).ok()),
@@ -85,6 +160,9 @@ pub async fn check_out(
 ) -> Result<AttendanceResponse> {
     let now_utc = Utc::now();
     let today = now_utc.with_timezone(&nepal_offset()).date_naive();
+    let method = req.method.clone().unwrap_or_else(|| "MANUAL".to_string());
+
+    enforce_geofence(db, &method, req.latitude, req.longitude).await?;
 
     // Lookup employee UUID from string code
     let employee_uuid =
@@ -94,32 +172,49 @@ pub async fn check_out(
             .await?
             .ok_or_else(|| anyhow!("Employee not found with ID: {}", employee_id))?;
 
+    // A check-out is only valid against an open check-in for today - this
+    // is what stops someone who never checked in from checking out.
     let attendance = sqlx::query_as::<_, AttendanceWithEmployee>(
         r#"
         UPDATE attendance_records ar
         SET check_out = $3,
             total_hours = EXTRACT(EPOCH FROM ($3 - ar.check_in)) / 3600,
             notes = COALESCE($4, ar.notes),
+            check_out_lat = $5,
+            check_out_long = $6,
+            check_out_method = $7,
             updated_at = NOW()
         FROM employees e, persons p
-        WHERE ar.employee_id = $1 
-          AND ar.date = $2 
+        WHERE ar.employee_id = $1
+          AND ar.date = $2
+          AND ar.check_in IS NOT NULL
           AND ar.check_out IS NULL
           AND e.id = ar.employee_id
           AND p.id = e.person_id
         RETURNING ar.id, ar.employee_id,
                   CONCAT(p.first_name, ' ', p.last_name) as employee_name,
                   ar.date, ar.check_in, ar.check_out, ar.total_hours,
-                  ar.status, ar.notes, ar.created_at, ar.updated_at
+                  ar.status, ar.notes, ar.created_at, ar.updated_at,
+                  ar.check_in_image, ar.check_in_method, ar.check_in_lat, ar.check_in_long,
+                  ar.check_out_lat, ar.check_out_long, ar.check_out_method
     "#,
     )
     .bind(employee_uuid)
     .bind(today)
     .bind(now_utc.naive_utc())
     .bind(&req.notes)
+    .bind(
+        req.latitude
+            .and_then(|l| BigDecimal::from_str(&l.to_string()).ok()),
+    )
+    .bind(
+        req.longitude
+            .and_then(|l| BigDecimal::from_str(&l.to_string()).ok()),
+    )
+    .bind(&method)
     .fetch_optional(db)
     .await?
-    .ok_or_else(|| anyhow!("No active check-in found for today"))?;
+    .ok_or_else(|| anyhow!("You must check in before you can check out"))?;
 
     Ok(map_attendance_to_response(attendance))
 }
@@ -167,7 +262,8 @@ pub async fn get_attendance_records(
                CONCAT(p.first_name, ' ', p.last_name) as employee_name,
                ar.date, ar.check_in, ar.check_out, ar.total_hours,
                ar.status, ar.notes, ar.created_at, ar.updated_at,
-               ar.check_in_image, ar.check_in_method, ar.check_in_lat, ar.check_in_long
+               ar.check_in_image, ar.check_in_method, ar.check_in_lat, ar.check_in_long,
+               ar.check_out_lat, ar.check_out_long, ar.check_out_method
         FROM attendance_records ar
         JOIN employees e ON e.id = ar.employee_id
         JOIN persons p ON p.id = e.person_id
@@ -287,6 +383,8 @@ fn map_attendance_to_response(att: AttendanceWithEmployee) -> AttendanceResponse
         check_in_image: att.check_in_image,
         check_in_lat: att.check_in_lat.and_then(|h| h.to_string().parse().ok()),
         check_in_long: att.check_in_long.and_then(|h| h.to_string().parse().ok()),
+        check_out_lat: att.check_out_lat.and_then(|h| h.to_string().parse().ok()),
+        check_out_long: att.check_out_long.and_then(|h| h.to_string().parse().ok()),
     }
 }
 
