@@ -1,9 +1,12 @@
 use crate::{
     api::{
         auth::password::hash_password,
-        user::{dto::CreateUserRequest, vmail::VmailService},
+        user::{
+            dto::CreateUserRequest,
+            vmail::{MailcowConfig, VmailService},
+        },
     },
-    db::{Db, VmailDb},
+    db::Db,
     models::user::User,
 };
 use anyhow::{Result, anyhow};
@@ -25,7 +28,11 @@ pub async fn list_users(db: &Db) -> Result<Vec<User>, axum::http::StatusCode> {
     Ok(users)
 }
 
-pub async fn create_user(db: &Db, vmail_db: Option<&VmailDb>, req: CreateUserRequest) -> Result<User> {
+pub async fn create_user(
+    db: &Db,
+    mailcow: Option<&MailcowConfig>,
+    req: CreateUserRequest,
+) -> Result<User> {
     // Check if user already exists for this person
     let exists =
         sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM users WHERE person_id = $1)")
@@ -71,23 +78,23 @@ pub async fn create_user(db: &Db, vmail_db: Option<&VmailDb>, req: CreateUserReq
     .await
     .map_err(|e| anyhow!("Failed to create user: {}", e))?;
 
-    // Create mailbox if email is in @ubucknepal.com domain and vmail is available
-    if user.email.ends_with("@ubucknepal.com") {
-        if let Some(vmail) = vmail_db {
+    // Provision a real Mailcow mailbox for users on the managed mail domain.
+    if let Some(cfg) = mailcow {
+        if user.email.ends_with(&format!("@{}", cfg.domain)) {
             if let Err(e) =
-                VmailService::create_mailbox(vmail, &user.email, &req.password, &user.user_name)
+                VmailService::create_mailbox(cfg, &user.email, &req.password, &user.user_name)
                     .await
             {
                 tracing::error!("Failed to create mailbox for {}: {}", user.email, e);
             } else {
                 tracing::info!("Successfully created mailbox for {}", user.email);
             }
-        } else {
-            tracing::warn!(
-                "Skipping mailbox creation for {} — vmail DB not available",
-                user.email
-            );
         }
+    } else if user.email.ends_with("@adyatech.com.np") {
+        tracing::warn!(
+            "Skipping mailbox creation for {} — Mailcow not configured",
+            user.email
+        );
     }
 
     // Send welcome email (offload blocking SMTP work)

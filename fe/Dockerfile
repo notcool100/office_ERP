@@ -3,6 +3,11 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# PUBLIC_API_URL is inlined into the client bundle by Vite at build time,
+# so it must be passed as a build arg (Coolify: mark it "Available at Buildtime").
+ARG PUBLIC_API_URL
+ENV PUBLIC_API_URL=${PUBLIC_API_URL}
+
 RUN npm install -g pnpm
 COPY package.json pnpm-lock.yaml svelte.config.js tsconfig.json ./
 RUN pnpm install

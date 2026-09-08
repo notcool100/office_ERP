@@ -17,6 +17,7 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/src/app/target/release/be /usr/local/bin/be
+COPY --from=builder /usr/src/app/target/release/seed /usr/local/bin/seed
 WORKDIR /app
 
 EXPOSE 3117

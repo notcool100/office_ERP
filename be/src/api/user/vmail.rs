@@ -1,15 +1,36 @@
-use crate::db::VmailDb;
 use anyhow::{Result, anyhow};
-use base64::{Engine as _, engine::general_purpose};
-use chrono::Utc;
-use rand::RngCore;
-use sha2::{Digest, Sha512};
+use serde_json::json;
+
+/// Config for talking to a Mailcow instance's REST API to provision real
+/// mailboxes alongside ERP user accounts. See https://mail.<domain>/api/
+#[derive(Clone)]
+pub struct MailcowConfig {
+    /// e.g. https://mail.adyatech.com.np:18443
+    pub base_url: String,
+    pub api_key: String,
+    /// Only emails on this domain get a mailbox provisioned.
+    pub domain: String,
+}
+
+impl MailcowConfig {
+    pub fn from_env() -> Option<Self> {
+        let base_url = std::env::var("MAILCOW_API_URL").ok()?;
+        let api_key = std::env::var("MAILCOW_API_KEY").ok()?;
+        let domain =
+            std::env::var("MAILCOW_MAIL_DOMAIN").unwrap_or_else(|_| "adyatech.com.np".to_string());
+        Some(Self {
+            base_url,
+            api_key,
+            domain,
+        })
+    }
+}
 
 pub struct VmailService;
 
 impl VmailService {
     pub async fn create_mailbox(
-        db: &VmailDb,
+        cfg: &MailcowConfig,
         email: &str,
         password: &str,
         name: &str,
@@ -18,103 +39,52 @@ impl VmailService {
         if parts.len() != 2 {
             return Err(anyhow!("Invalid email address"));
         }
-        let username = parts[0];
+        let local_part = parts[0];
         let domain = parts[1];
 
-        // Check if user already exists
-        let exists: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM mailbox WHERE username = ?")
-            .bind(email)
-            .fetch_one(db)
-            .await?;
-
-        if exists > 0 {
-            return Ok(());
-        }
-
-        let hashed_password = Self::ssha512_hash(password);
-        let timestamp = Utc::now().format("%Y.%m.%d.%H.%M.%S").to_string();
-
-        // Maildir format: domain/first_char/second_char/third_char/username-timestamp/
-        let mut chars = username.chars();
-        let c1 = chars.next().unwrap_or('?').to_string();
-        let c2 = chars.next().unwrap_or('?').to_string();
-        let c3 = chars.next().unwrap_or('?').to_string();
-        let maildir = format!(
-            "{}/{}/{}/{}/{}-{}/",
-            domain, c1, c2, c3, username, timestamp
+        let url = format!(
+            "{}/api/v1/add/mailbox",
+            cfg.base_url.trim_end_matches('/')
         );
 
-        // Insert into mailbox
-        sqlx::query(
-            r#"
-            INSERT INTO mailbox (
-                username, password, name, domain, maildir,
-                storagebasedirectory, storagenode, mailboxformat, mailboxfolder,
-                isadmin, isglobaladmin, enablesmtp, enablesmtpsecured,
-                enablepop3, enablepop3secured, enablepop3tls,
-                enableimap, enableimapsecured, enableimaptls,
-                enabledeliver, enablelda, enablemanagesieve,
-                enablemanagesievesecured, enablesieve, enablesievesecured,
-                enablesievetls, enableinternal, enabledoveadm,
-                `enablelib-storage`, `enablequota-status`, `enableindexer-worker`,
-                enablelmtp, enabledsync, enablesogo,
-                enablesogowebmail, enablesogocalendar, enablesogoactivesync,
-                active, created, modified, expired, birthday
-            ) VALUES (
-                ?, ?, ?, ?, ?,
-                '/var/vmail', 'vmail1', 'maildir', 'Maildir',
-                0, 0, 1, 1,
-                1, 1, 1,
-                1, 1, 1,
-                1, 1, 1,
-                1, 1, 1,
-                1, 1, 1,
-                1, 1, 1,
-                1, 1, 1,
-                'y', 'y', 'y',
-                1, NOW(), NOW(), '9999-12-31 01:01:01', '0001-01-01'
-            )
-            "#,
-        )
-        .bind(email)
-        .bind(hashed_password)
-        .bind(name)
-        .bind(domain)
-        .bind(maildir)
-        .execute(db)
-        .await?;
+        let body = json!({
+            "local_part": local_part,
+            "domain": domain,
+            "name": name,
+            "password": password,
+            "password2": password,
+            "quota": "3072",
+            "active": "1"
+        });
 
-        // Insert into forwardings (self-referential)
-        sqlx::query(
-            r#"
-            INSERT INTO forwardings (
-                address, forwarding, domain, dest_domain,
-                is_maillist, is_list, is_forwarding, is_alias, active
-            ) VALUES (?, ?, ?, ?, 0, 0, 1, 0, 1)
-            "#,
-        )
-        .bind(email)
-        .bind(email)
-        .bind(domain)
-        .bind(domain)
-        .execute(db)
-        .await?;
+        // Mailcow's admin API listener uses a self-signed cert by design
+        // (real TLS termination for the public domain happens elsewhere);
+        // this call stays host-internal, so we trust it explicitly.
+        let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .map_err(|e| anyhow!("Failed to build HTTP client: {}", e))?;
+        let resp = client
+            .post(&url)
+            .header("X-API-Key", &cfg.api_key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Mailcow API request failed: {}", e))?;
+
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+
+        if !status.is_success() {
+            return Err(anyhow!("Mailcow API returned {}: {}", status, text));
+        }
+
+        // Mailcow returns HTTP 200 with a JSON array of {"type": "success"|"danger"|"error", "msg": [...]}
+        // even on failure, so the status field itself has to be inspected.
+        if text.contains("\"danger\"") || text.contains("\"error\"") {
+            return Err(anyhow!("Mailcow API rejected mailbox creation: {}", text));
+        }
 
         Ok(())
-    }
-
-    fn ssha512_hash(password: &str) -> String {
-        let mut salt = [0u8; 8];
-        rand::thread_rng().fill_bytes(&mut salt);
-
-        let mut hasher = Sha512::new();
-        hasher.update(password.as_bytes());
-        hasher.update(salt);
-        let hash = hasher.finalize();
-
-        let mut combined = hash.to_vec();
-        combined.extend_from_slice(&salt);
-
-        format!("{{SSHA512}}{}", general_purpose::STANDARD.encode(combined))
     }
 }

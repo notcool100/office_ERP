@@ -1,6 +1,6 @@
 use crate::{
-    api::user::{dto::CreateUserRequest, service},
-    db::{Db, VmailDb},
+    api::user::{dto::CreateUserRequest, service, vmail::MailcowConfig},
+    db::Db,
     models::user::User,
 };
 use axum::{Extension, Json, http::StatusCode};
@@ -16,14 +16,14 @@ pub async fn list_users_handler(
 
 pub async fn create_user_handler(
     Extension(db): Extension<Db>,
-    Extension(vmail_db): Extension<Option<VmailDb>>,
+    Extension(mailcow): Extension<Option<MailcowConfig>>,
     Json(payload): Json<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<User>), StatusCode> {
-    if vmail_db.is_none() {
-        tracing::warn!("Vmail database not initialized — mailbox creation will be skipped");
+    if mailcow.is_none() {
+        tracing::warn!("Mailcow not configured — mailbox creation will be skipped");
     }
 
-    let user = service::create_user(&db, vmail_db.as_ref(), payload)
+    let user = service::create_user(&db, mailcow.as_ref(), payload)
         .await
         .map_err(|e| {
             eprintln!("Error creating user: {}", e);

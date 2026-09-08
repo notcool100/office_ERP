@@ -1,4 +1,4 @@
-use be::{build_routes, init_pool, init_vmail_pool, middleware};
+use be::{api::user::vmail::MailcowConfig, build_routes, init_pool, middleware};
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -35,16 +35,12 @@ async fn main() {
             );
         }
     };
-    let vmail_pool = match init_vmail_pool().await {
-        Ok(pool) => Some(pool),
-        Err(e) => {
-            tracing::warn!(
-                "Failed to init vmail pool (this is normal for local development if you don't have remote access): {}",
-                e
-            );
-            None
-        }
-    };
+    let mailcow_config = MailcowConfig::from_env();
+    if mailcow_config.is_none() {
+        tracing::warn!(
+            "MAILCOW_API_URL / MAILCOW_API_KEY not set — mailbox provisioning will be skipped"
+        );
+    }
 
     // Start background scheduler for due-date reminders
     be::scheduler::start(db_pool.clone());
@@ -58,7 +54,7 @@ async fn main() {
         .allow_headers([AUTHORIZATION, CONTENT_TYPE, ACCEPT]);
 
     let app = build_routes(hub.clone())
-        .layer(middleware::add_extensions(db_pool, vmail_pool))
+        .layer(middleware::add_extensions(db_pool, mailcow_config))
         .layer(cors)
         .layer(SetResponseHeaderLayer::overriding(
             CACHE_CONTROL,

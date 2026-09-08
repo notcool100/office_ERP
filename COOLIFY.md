@@ -10,7 +10,7 @@ Use Coolify to create a managed PostgreSQL database.
 
 Required backend environment variables:
 - `DATABASE_URL` = PostgreSQL connection string
-- optional: `VMAIL_DATABASE_URL` = MySQL connection string for the optional vmail pool
+- optional: `MAILCOW_API_URL`, `MAILCOW_API_KEY`, `MAILCOW_MAIL_DOMAIN` = Mailcow REST API mailbox provisioning
 
 Example PostgreSQL URL:
 ```text
@@ -26,7 +26,7 @@ Create a new Coolify app using the `be` folder as the build context.
 - Environment variables:
   - `PORT=3117`
   - `DATABASE_URL`
-  - `VMAIL_DATABASE_URL` (optional)
+  - `MAILCOW_API_URL`, `MAILCOW_API_KEY`, `MAILCOW_MAIL_DOMAIN` (optional, for mailbox auto-provisioning)
   - `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_PORT` (if mail is enabled)
 
 The backend listens on `0.0.0.0:3117` by default.
