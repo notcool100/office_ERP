@@ -19,19 +19,30 @@ struct DueScheduleNote {
 }
 
 pub fn start(pool: PgPool) {
-    tokio::spawn(async move {
-        loop {
-            // Sleep until next midnight UTC (run once per day)
-            let now = Utc::now();
-            let tomorrow = (now + Duration::days(1))
-                .date_naive()
-                .and_hms_opt(0, 0, 0)
-                .unwrap();
-            let sleep_secs = (tomorrow - now.naive_utc()).num_seconds().max(0) as u64;
-            tokio::time::sleep(tokio::time::Duration::from_secs(sleep_secs)).await;
+    tokio::spawn({
+        let pool = pool.clone();
+        async move {
+            loop {
+                // Sleep until next midnight UTC (run once per day)
+                let now = Utc::now();
+                let tomorrow = (now + Duration::days(1))
+                    .date_naive()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap();
+                let sleep_secs = (tomorrow - now.naive_utc()).num_seconds().max(0) as u64;
+                tokio::time::sleep(tokio::time::Duration::from_secs(sleep_secs)).await;
 
-            send_due_date_reminders(&pool).await;
-            send_schedule_reminders(&pool).await;
+                send_due_date_reminders(&pool).await;
+                send_schedule_reminders(&pool).await;
+            }
+        }
+    });
+
+    tokio::spawn(async move {
+        const GITHUB_SYNC_INTERVAL: tokio::time::Duration = tokio::time::Duration::from_secs(600);
+        loop {
+            tokio::time::sleep(GITHUB_SYNC_INTERVAL).await;
+            crate::api::integrations::github::service::sync_all_linked_projects(&pool).await;
         }
     });
 }
@@ -80,13 +91,16 @@ async fn send_due_date_reminders(pool: &PgPool) {
         let project = card.project_name.clone();
         let due = card.due_date.to_string();
         let result = tokio::task::spawn_blocking(move || {
-            crate::api::user::mailer::Mailer::new().send_due_date_reminder_email(
-                &to, &name, &title, &project, &due,
-            )
+            crate::api::user::mailer::Mailer::new()
+                .send_due_date_reminder_email(&to, &name, &title, &project, &due)
         })
         .await;
         if let Ok(Err(e)) = result {
-            tracing::error!("[SCHEDULER] Due-date reminder failed for {}: {}", card.assignee_email, e);
+            tracing::error!(
+                "[SCHEDULER] Due-date reminder failed for {}: {}",
+                card.assignee_email,
+                e
+            );
         }
     }
 }
@@ -115,7 +129,10 @@ async fn send_schedule_reminders(pool: &PgPool) {
     let notes = match notes {
         Ok(n) => n,
         Err(e) => {
-            tracing::error!("[SCHEDULER] Failed to fetch tomorrow's schedule notes: {}", e);
+            tracing::error!(
+                "[SCHEDULER] Failed to fetch tomorrow's schedule notes: {}",
+                e
+            );
             return;
         }
     };
@@ -137,7 +154,11 @@ async fn send_schedule_reminders(pool: &PgPool) {
         })
         .await;
         if let Ok(Err(e)) = result {
-            tracing::error!("[SCHEDULER] Schedule reminder failed for {}: {}", note.user_email, e);
+            tracing::error!(
+                "[SCHEDULER] Schedule reminder failed for {}: {}",
+                note.user_email,
+                e
+            );
         }
     }
 }

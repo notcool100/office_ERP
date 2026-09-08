@@ -72,6 +72,9 @@ export interface Card {
     created_at: string;
     updated_at: string;
     sprint_id: string | null;
+    github_issue_number: number | null;
+    github_issue_url: string | null;
+    github_state: 'open' | 'closed' | null;
 }
 
 export interface Sprint {
@@ -182,4 +185,22 @@ export interface CardLink {
 export interface CreateCardLinkDto {
     target_card_id: string;
     link_type: string;
+}
+
+export interface ProjectGithubLink {
+    linked: boolean;
+    repo_owner: string | null;
+    repo_name: string | null;
+    sync_enabled: boolean | null;
+    last_synced_at: string | null;
+    last_sync_status: 'success' | 'error' | null;
+    last_sync_error: string | null;
+}
+
+export interface ProjectGithubSyncResult {
+    created: number;
+    updated: number;
+    last_synced_at: string | null;
+    last_sync_status: 'success' | 'error' | null;
+    last_sync_error: string | null;
 }

@@ -283,6 +283,9 @@ pub async fn list_cards_handler(
             created_at: card.created_at,
             updated_at: card.updated_at,
             sprint_id: card.sprint_id,
+            github_issue_number: card.github_issue_number,
+            github_issue_url: card.github_issue_url,
+            github_state: card.github_state,
         })
         .collect();
 
@@ -327,6 +330,9 @@ pub async fn create_card_handler(
         created_at: card.created_at,
         updated_at: card.updated_at,
         sprint_id: card.sprint_id,
+        github_issue_number: card.github_issue_number,
+        github_issue_url: card.github_issue_url,
+        github_state: card.github_state,
     };
 
     Ok((StatusCode::CREATED, Json(json!(response))))
@@ -464,6 +470,9 @@ pub async fn update_card_handler(
         created_at: card.created_at,
         updated_at: card.updated_at,
         sprint_id: card.sprint_id,
+        github_issue_number: card.github_issue_number,
+        github_issue_url: card.github_issue_url,
+        github_state: card.github_state,
     };
 
     Ok((StatusCode::OK, Json(json!(response))))

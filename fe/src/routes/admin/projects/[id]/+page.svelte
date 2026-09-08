@@ -27,6 +27,7 @@
         CheckSquare,
         Link,
         AlertCircle,
+        Github,
     } from 'lucide-svelte';
     import PageSection from '../../../../components/PageSection.svelte';
     import { projectService } from '$lib/services/project';
@@ -43,6 +44,7 @@
         Sprint,
         CreateSprintDto,
         UpdateSprintDto,
+        ProjectGithubLink,
     } from '$lib/types/project';
     import type { User } from '$lib/types/user';
     import {
@@ -99,7 +101,16 @@
     let newCardAttachments: { file: File, previewUrl: string }[] = [];
 
     let sprintFilter = 'all';
-    let activeMainTab: 'board' | 'map' = 'board';
+    let activeMainTab: 'board' | 'map' | 'github' = 'board';
+
+    let githubLink: ProjectGithubLink | null = null;
+    let githubLinkLoading = false;
+    let githubLinkForm = { repo_owner: '', repo_name: '' };
+    let githubLinking = false;
+    let githubSyncing = false;
+    let githubUnlinking = false;
+    let confirmingGithubUnlink = false;
+    let githubError = '';
 
     let cardForm = {
         column_id: '',
@@ -180,6 +191,72 @@
             errorMessage = 'Failed to load project data';
         } finally {
             loading = false;
+        }
+    }
+
+    async function loadGithubLink() {
+        githubLinkLoading = true;
+        githubError = '';
+        try {
+            githubLink = await projectService.getGithubLink(projectId);
+        } catch (error) {
+            console.error('Failed to load GitHub link:', error);
+            githubError = 'Failed to load GitHub link status';
+        } finally {
+            githubLinkLoading = false;
+        }
+    }
+
+    function openGithubTab() {
+        activeMainTab = 'github';
+        if (!githubLink) {
+            loadGithubLink();
+        }
+    }
+
+    async function handleLinkGithub() {
+        if (!githubLinkForm.repo_owner.trim() || !githubLinkForm.repo_name.trim()) return;
+
+        githubLinking = true;
+        githubError = '';
+        try {
+            githubLink = await projectService.linkGithub(projectId, {
+                repo_owner: githubLinkForm.repo_owner.trim(),
+                repo_name: githubLinkForm.repo_name.trim(),
+            });
+            githubLinkForm = { repo_owner: '', repo_name: '' };
+        } catch (error: any) {
+            githubError = error.message ?? 'Failed to link GitHub repository';
+        } finally {
+            githubLinking = false;
+        }
+    }
+
+    async function handleSyncGithub() {
+        githubSyncing = true;
+        githubError = '';
+        try {
+            await projectService.syncGithub(projectId);
+            await loadGithubLink();
+            cards = await projectService.listCards(projectId);
+        } catch (error: any) {
+            githubError = error.message ?? 'Failed to sync GitHub repository';
+        } finally {
+            githubSyncing = false;
+        }
+    }
+
+    async function handleUnlinkGithub() {
+        githubUnlinking = true;
+        githubError = '';
+        try {
+            await projectService.unlinkGithub(projectId);
+            githubLink = { linked: false, repo_owner: null, repo_name: null, sync_enabled: null, last_synced_at: null, last_sync_status: null, last_sync_error: null };
+            confirmingGithubUnlink = false;
+        } catch (error: any) {
+            githubError = error.message ?? 'Failed to unlink GitHub repository';
+        } finally {
+            githubUnlinking = false;
         }
     }
 
@@ -737,6 +814,9 @@
                         <div class="tabs tabs-boxed ml-4 bg-base-200/50">
                             <button class="tab {activeMainTab === 'board' ? 'tab-active' : ''}" on:click={() => activeMainTab = 'board'}>Board</button>
                             <button class="tab {activeMainTab === 'map' ? 'tab-active' : ''}" on:click={() => activeMainTab = 'map'}>Map</button>
+                            <button class="tab gap-1 {activeMainTab === 'github' ? 'tab-active' : ''}" on:click={openGithubTab}>
+                                <Github class="w-3.5 h-3.5" /> GitHub
+                            </button>
                         </div>
                     </div>
                     <div class="flex items-center gap-3 flex-wrap">
@@ -840,6 +920,16 @@
                                                             {card.sprint_name}
                                                         </span>
                                                     {/if}
+                                                    {#if card.github_issue_number}
+                                                        <a
+                                                            href={card.github_issue_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            class="badge badge-ghost badge-sm gap-1"
+                                                            on:click|stopPropagation>
+                                                            <Github class="w-2.5 h-2.5" /> #{card.github_issue_number}
+                                                        </a>
+                                                    {/if}
                                                 </div>
 
                                                 <div class="text-xs">
@@ -919,6 +1009,11 @@
                                                                     <div class="text-xs opacity-60">{topCard.assignee_name || 'Unassigned'}</div>
                                                                     <div class="badge badge-sm uppercase text-[9px]">{topCard.priority}</div>
                                                                 </div>
+                                                                {#if topCard.github_issue_number}
+                                                                    <a href={topCard.github_issue_url} target="_blank" rel="noopener noreferrer" class="badge badge-ghost badge-sm gap-1 mt-1" on:click|stopPropagation>
+                                                                        <Github class="w-2.5 h-2.5" /> #{topCard.github_issue_number}
+                                                                    </a>
+                                                                {/if}
                                                             </div>
                                                         </div>
                                                         <!-- Level 1 Children -->
@@ -928,6 +1023,11 @@
                                                                     <div class="p-3">
                                                                         <div class="text-[10px] font-mono opacity-70 mb-1">{child1.card_key} • <span class="uppercase">{child1.card_type}</span></div>
                                                                         <div class="font-medium text-sm leading-tight">{child1.title}</div>
+                                                                        {#if child1.github_issue_number}
+                                                                            <a href={child1.github_issue_url} target="_blank" rel="noopener noreferrer" class="badge badge-ghost badge-sm gap-1 mt-1" on:click|stopPropagation>
+                                                                                <Github class="w-2.5 h-2.5" /> #{child1.github_issue_number}
+                                                                            </a>
+                                                                        {/if}
                                                                     </div>
                                                                 </div>
                                                                 <!-- Level 2 Children -->
@@ -937,6 +1037,11 @@
                                                                             <div class="p-2">
                                                                                 <div class="text-[10px] font-mono opacity-70 mb-1">{child2.card_key} • <span class="uppercase">{child2.card_type}</span></div>
                                                                                 <div class="font-medium text-xs leading-tight">{child2.title}</div>
+                                                                                {#if child2.github_issue_number}
+                                                                                    <a href={child2.github_issue_url} target="_blank" rel="noopener noreferrer" class="badge badge-ghost badge-sm gap-1 mt-1" on:click|stopPropagation>
+                                                                                        <Github class="w-2.5 h-2.5" /> #{child2.github_issue_number}
+                                                                                    </a>
+                                                                                {/if}
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -965,6 +1070,11 @@
                                                     <div class="p-3">
                                                         <div class="text-[10px] font-mono opacity-70 mb-1">{topCard.card_key} • <span class="uppercase">{topCard.card_type}</span></div>
                                                         <div class="font-medium text-sm leading-tight">{topCard.title}</div>
+                                                        {#if topCard.github_issue_number}
+                                                            <a href={topCard.github_issue_url} target="_blank" rel="noopener noreferrer" class="badge badge-ghost badge-sm gap-1 mt-1" on:click|stopPropagation>
+                                                                <Github class="w-2.5 h-2.5" /> #{topCard.github_issue_number}
+                                                            </a>
+                                                        {/if}
                                                     </div>
                                                 </div>
                                                 <!-- Level 1 Children -->
@@ -974,6 +1084,11 @@
                                                             <div class="p-2">
                                                                 <div class="text-[10px] font-mono opacity-70 mb-1">{child1.card_key}</div>
                                                                 <div class="font-medium text-xs leading-tight">{child1.title}</div>
+                                                                {#if child1.github_issue_number}
+                                                                    <a href={child1.github_issue_url} target="_blank" rel="noopener noreferrer" class="badge badge-ghost badge-sm gap-1 mt-1" on:click|stopPropagation>
+                                                                        <Github class="w-2.5 h-2.5" /> #{child1.github_issue_number}
+                                                                    </a>
+                                                                {/if}
                                                             </div>
                                                         </div>
                                                         <!-- Level 2 Children -->
@@ -983,6 +1098,11 @@
                                                                     <div class="p-2">
                                                                         <div class="text-[10px] font-mono opacity-70 mb-1">{child2.card_key}</div>
                                                                         <div class="font-medium text-[11px] leading-tight">{child2.title}</div>
+                                                                        {#if child2.github_issue_number}
+                                                                            <a href={child2.github_issue_url} target="_blank" rel="noopener noreferrer" class="badge badge-ghost badge-sm gap-1 mt-1" on:click|stopPropagation>
+                                                                                <Github class="w-2.5 h-2.5" /> #{child2.github_issue_number}
+                                                                            </a>
+                                                                        {/if}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -995,6 +1115,125 @@
                                 </div>
                             {/if}
                         </div>
+                    </div>
+                {:else if activeMainTab === 'github'}
+                    <div class="bg-base-200/30 rounded-xl border border-base-300 p-6 max-w-xl">
+                        {#if githubLinkLoading}
+                            <div class="flex justify-center p-8">
+                                <span class="loading loading-spinner loading-lg"></span>
+                            </div>
+                        {:else if githubLink?.linked}
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-2">
+                                    <Github class="w-5 h-5" />
+                                    <a
+                                        href={`https://github.com/${githubLink.repo_owner}/${githubLink.repo_name}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="link link-primary font-medium">
+                                        {githubLink.repo_owner}/{githubLink.repo_name}
+                                    </a>
+                                    {#if githubLink.last_sync_status}
+                                        <span class="badge badge-sm {githubLink.last_sync_status === 'success' ? 'badge-success' : 'badge-error'}">
+                                            {githubLink.last_sync_status}
+                                        </span>
+                                    {/if}
+                                </div>
+
+                                <div class="text-sm opacity-70">
+                                    Last synced: {formatDate(githubLink.last_synced_at)}
+                                </div>
+
+                                {#if githubLink.last_sync_error}
+                                    <div class="text-sm text-error">{githubLink.last_sync_error}</div>
+                                {/if}
+
+                                {#if githubError}
+                                    <div class="text-sm text-error">{githubError}</div>
+                                {/if}
+
+                                <div class="flex items-center gap-2 pt-2">
+                                    <button
+                                        class="btn btn-sm btn-primary"
+                                        disabled={githubSyncing || !canUpdateCards}
+                                        on:click={handleSyncGithub}>
+                                        {#if githubSyncing}
+                                            <span class="loading loading-spinner loading-xs"></span>
+                                        {/if}
+                                        Sync now
+                                    </button>
+                                    {#if confirmingGithubUnlink}
+                                        <span class="text-sm opacity-70">Unlink repository?</span>
+                                        <button
+                                            class="btn btn-sm btn-ghost"
+                                            disabled={githubUnlinking}
+                                            on:click={() => (confirmingGithubUnlink = false)}>
+                                            Cancel
+                                        </button>
+                                        <button
+                                            class="btn btn-sm btn-error"
+                                            disabled={githubUnlinking}
+                                            on:click={handleUnlinkGithub}>
+                                            {#if githubUnlinking}
+                                                <span class="loading loading-spinner loading-xs"></span>
+                                            {/if}
+                                            Confirm
+                                        </button>
+                                    {:else}
+                                        <button
+                                            class="btn btn-sm btn-error btn-outline"
+                                            disabled={!canUpdateCards}
+                                            on:click={() => (confirmingGithubUnlink = true)}>
+                                            Unlink
+                                        </button>
+                                    {/if}
+                                </div>
+                            </div>
+                        {:else}
+                            <div class="space-y-4">
+                                <p class="text-sm opacity-70">
+                                    Link this project to a GitHub repository to sync issues into cards.
+                                    A GitHub account must be connected first under
+                                    <a href="/admin/settings/connectors" class="link link-primary">Settings &gt; Connectors</a>.
+                                </p>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="form-control">
+                                        <label class="label" for="gh-repo-owner">
+                                            <span class="label-text">Owner</span>
+                                        </label>
+                                        <input
+                                            id="gh-repo-owner"
+                                            type="text"
+                                            class="input input-bordered input-sm"
+                                            placeholder="acme"
+                                            bind:value={githubLinkForm.repo_owner} />
+                                    </div>
+                                    <div class="form-control">
+                                        <label class="label" for="gh-repo-name">
+                                            <span class="label-text">Repository</span>
+                                        </label>
+                                        <input
+                                            id="gh-repo-name"
+                                            type="text"
+                                            class="input input-bordered input-sm"
+                                            placeholder="widget"
+                                            bind:value={githubLinkForm.repo_name} />
+                                    </div>
+                                </div>
+                                {#if githubError}
+                                    <div class="text-sm text-error">{githubError}</div>
+                                {/if}
+                                <button
+                                    class="btn btn-sm btn-primary"
+                                    disabled={githubLinking || !canUpdateCards || !githubLinkForm.repo_owner.trim() || !githubLinkForm.repo_name.trim()}
+                                    on:click={handleLinkGithub}>
+                                    {#if githubLinking}
+                                        <span class="loading loading-spinner loading-xs"></span>
+                                    {/if}
+                                    Link repository
+                                </button>
+                            </div>
+                        {/if}
                     </div>
                 {/if}
             </div>
@@ -1321,6 +1560,19 @@
                         <span class="text-xs opacity-50 uppercase">Due Date</span>
                         <span class="text-sm">{formatDate(selectedCard.due_date)}</span>
                     </div>
+                    {#if selectedCard.github_issue_number}
+                        <div class="flex flex-col items-end">
+                            <span class="text-xs opacity-50 uppercase">GitHub</span>
+                            <a
+                                href={selectedCard.github_issue_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="badge badge-ghost badge-sm gap-1"
+                                on:click|stopPropagation>
+                                <Github class="w-3 h-3" /> #{selectedCard.github_issue_number}
+                            </a>
+                        </div>
+                    {/if}
                 </div>
             </div>
 

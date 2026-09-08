@@ -10,6 +10,7 @@ Use Coolify to create a managed PostgreSQL database.
 
 Required backend environment variables:
 - `DATABASE_URL` = PostgreSQL connection string
+- `GITHUB_TOKEN_ENC_KEY` = 32-byte base64 key used to encrypt the GitHub connector's stored token (generate with `openssl rand -base64 32`)
 - optional: `MAILCOW_API_URL`, `MAILCOW_API_KEY`, `MAILCOW_MAIL_DOMAIN` = Mailcow REST API mailbox provisioning
 
 Example PostgreSQL URL:
@@ -26,6 +27,7 @@ Create a new Coolify app using the `be` folder as the build context.
 - Environment variables:
   - `PORT=3117`
   - `DATABASE_URL`
+  - `GITHUB_TOKEN_ENC_KEY` (required to use the GitHub connector — Settings > Connectors)
   - `MAILCOW_API_URL`, `MAILCOW_API_KEY`, `MAILCOW_MAIL_DOMAIN` (optional, for mailbox auto-provisioning)
   - `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_PORT` (if mail is enabled)
 

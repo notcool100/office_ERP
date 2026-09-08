@@ -9,7 +9,8 @@ use crate::api::{
     media_library::routes::media_library_routes,
     daily_log::routes::daily_log_routes,
     department::routes::department_routes, employee::routes::employee_routes,
-    home::handlers::health_check_handler, intern::routes::intern_routes,
+    home::handlers::health_check_handler,
+    integrations::github::routes::github_connection_routes, intern::routes::intern_routes,
     leave::routes::leave_routes, messaging::routes::messaging_routes,
     navigation::routes::navigation_routes,
     payroll::routes::{payroll_my_routes, payroll_routes},
@@ -76,6 +77,10 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
         .nest(
             "/daily-logs",
             daily_log_routes().layer(rbac::require_permission("/admin/daily-log")),
+        )
+        .nest(
+            "/integrations/github",
+            github_connection_routes().layer(rbac::require_permission("/admin/settings/connectors")),
         )
         .nest("/navigation", navigation_routes())
         .nest(

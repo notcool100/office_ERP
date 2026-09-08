@@ -70,6 +70,9 @@ pub struct CardWithAssignee {
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
     pub sprint_id: Option<Uuid>,
+    pub github_issue_number: Option<i32>,
+    pub github_issue_url: Option<String>,
+    pub github_state: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -472,7 +475,8 @@ pub async fn list_cards(
                c.title, c.description, c.card_type, c.parent_id, pc.card_key as parent_card_key, c.is_migrated,
                c.sprint_name, c.priority, c.assignee_id,
                u.user_name as assignee_name, c.due_date, c.display_order,
-               c.created_at, c.updated_at, c.sprint_id
+               c.created_at, c.updated_at, c.sprint_id,
+               c.github_issue_number, c.github_issue_url, c.github_state
         FROM cards c
         LEFT JOIN users u ON u.id = c.assignee_id
         LEFT JOIN cards pc ON pc.id = c.parent_id
@@ -678,7 +682,8 @@ pub async fn create_card(
                nc.title, nc.description, nc.card_type, nc.parent_id, pc.card_key as parent_card_key, nc.is_migrated,
                nc.sprint_name, nc.priority,
                nc.assignee_id, u.user_name as assignee_name, nc.due_date,
-               nc.display_order, nc.created_at, nc.updated_at, nc.sprint_id
+               nc.display_order, nc.created_at, nc.updated_at, nc.sprint_id,
+               nc.github_issue_number, nc.github_issue_url, nc.github_state
         FROM new_card nc
         LEFT JOIN users u ON u.id = nc.assignee_id
         LEFT JOIN cards pc ON pc.id = nc.parent_id
@@ -758,6 +763,135 @@ pub async fn create_card(
     Ok(card)
 }
 
+/// A GitHub issue as fetched by the GitHub integration, ready to be mirrored
+/// into a project's board as a card.
+pub struct GithubIssueSyncInput {
+    pub number: i32,
+    pub title: String,
+    pub description: Option<String>,
+    /// "open" or "closed"
+    pub state: String,
+    pub html_url: String,
+}
+
+pub enum GithubCardSyncOutcome {
+    Created,
+    Updated,
+}
+
+/// One-way sync (GitHub -> ERP): creates a card for a new issue, or updates
+/// the title/description/state of a card previously imported from the same
+/// issue. Matched by `(project_id, github_issue_number)`. Never moves a card
+/// between columns so manual board organization is preserved.
+pub async fn upsert_card_from_github_issue(
+    pool: &PgPool,
+    project_id: Uuid,
+    issue: &GithubIssueSyncInput,
+) -> Result<GithubCardSyncOutcome, ProjectError> {
+    let now = Utc::now().naive_utc();
+    let description = normalize_optional_text(issue.description.as_deref(), 20_000);
+
+    let existing_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM cards WHERE project_id = $1 AND github_issue_number = $2",
+    )
+    .bind(project_id)
+    .bind(issue.number)
+    .fetch_optional(pool)
+    .await?;
+
+    if let Some(card_id) = existing_id {
+        let mut tx = pool.begin().await?;
+
+        sqlx::query(
+            r#"
+            UPDATE cards SET
+                title = $1,
+                description = $2,
+                github_state = $3,
+                github_issue_url = $4,
+                github_synced_at = $5,
+                updated_at = $5
+            WHERE id = $6
+            "#,
+        )
+        .bind(&issue.title)
+        .bind(&description)
+        .bind(&issue.state)
+        .bind(&issue.html_url)
+        .bind(now)
+        .bind(card_id)
+        .execute(&mut *tx)
+        .await?;
+
+        log_card_activity_tx(
+            &mut tx,
+            project_id,
+            card_id,
+            None,
+            "updated",
+            format!("Synced from GitHub issue #{}", issue.number),
+            None,
+        )
+        .await?;
+
+        tx.commit().await?;
+        return Ok(GithubCardSyncOutcome::Updated);
+    }
+
+    let column_id = resolve_column_id(pool, project_id, None).await?;
+    let display_order = next_card_order(pool, column_id).await?;
+
+    let mut tx = pool.begin().await?;
+    let project_name = sqlx::query_scalar::<_, String>("SELECT name FROM projects WHERE id = $1")
+        .bind(project_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(ProjectError::NotFound)?;
+    let sequence_no = next_card_sequence(&mut tx, project_id).await?;
+    let card_key = build_card_key(&project_name, sequence_no);
+
+    let card_id: Uuid = sqlx::query_scalar(
+        r#"
+        INSERT INTO cards (
+            project_id, column_id, sequence_no, card_key, title, description,
+            card_type, is_migrated, priority, display_order,
+            github_issue_number, github_issue_url, github_state, github_synced_at,
+            created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, 'task', false, 'medium', $7, $8, $9, $10, $11, $11, $11)
+        RETURNING id
+        "#,
+    )
+    .bind(project_id)
+    .bind(column_id)
+    .bind(sequence_no)
+    .bind(&card_key)
+    .bind(&issue.title)
+    .bind(&description)
+    .bind(display_order)
+    .bind(issue.number)
+    .bind(&issue.html_url)
+    .bind(&issue.state)
+    .bind(now)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    log_card_activity_tx(
+        &mut tx,
+        project_id,
+        card_id,
+        None,
+        "created",
+        format!("Imported from GitHub issue #{}", issue.number),
+        None,
+    )
+    .await?;
+
+    tx.commit().await?;
+
+    Ok(GithubCardSyncOutcome::Created)
+}
+
 pub async fn update_card(
     pool: &PgPool,
     project_id: Uuid,
@@ -820,7 +954,8 @@ pub async fn update_card(
                u.title, u.description, u.card_type, u.parent_id, pc.card_key as parent_card_key, u.is_migrated,
                u.sprint_name, u.priority, u.assignee_id,
                usr.user_name as assignee_name, u.due_date,
-               u.display_order, u.created_at, u.updated_at, u.sprint_id
+               u.display_order, u.created_at, u.updated_at, u.sprint_id,
+               u.github_issue_number, u.github_issue_url, u.github_state
         FROM updated u
         LEFT JOIN users usr ON usr.id = u.assignee_id
         LEFT JOIN cards pc ON pc.id = u.parent_id
@@ -1282,7 +1417,8 @@ async fn get_card_with_assignee(
                c.title, c.description, c.card_type, c.parent_id, pc.card_key as parent_card_key, c.is_migrated,
                c.sprint_name, c.priority, c.assignee_id,
                u.user_name as assignee_name, c.due_date, c.display_order,
-               c.created_at, c.updated_at, c.sprint_id
+               c.created_at, c.updated_at, c.sprint_id,
+               c.github_issue_number, c.github_issue_url, c.github_state
         FROM cards c
         LEFT JOIN users u ON u.id = c.assignee_id
         LEFT JOIN cards pc ON pc.id = c.parent_id

@@ -17,6 +17,8 @@ import type {
     UpdateSprintDto,
     CardLink,
     CreateCardLinkDto,
+    ProjectGithubLink,
+    ProjectGithubSyncResult,
 } from '$lib/types/project';
 
 export const projectService = {
@@ -222,5 +224,37 @@ export const projectService = {
     async deleteCardLink(projectId: string, cardId: string, linkId: string): Promise<void> {
         const response = await api.delete(`/projects/${projectId}/cards/${cardId}/links/${linkId}`);
         if (!response.ok) throw new Error('Failed to delete card link');
+    },
+
+    async getGithubLink(projectId: string): Promise<ProjectGithubLink> {
+        const response = await api.get(`/projects/${projectId}/github`);
+        if (!response.ok) throw new Error('Failed to fetch GitHub link');
+        return await response.json();
+    },
+
+    async linkGithub(
+        projectId: string,
+        data: { repo_owner: string; repo_name: string },
+    ): Promise<ProjectGithubLink> {
+        const response = await api.post(`/projects/${projectId}/github`, data);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to link GitHub repository');
+        }
+        return await response.json();
+    },
+
+    async unlinkGithub(projectId: string): Promise<void> {
+        const response = await api.delete(`/projects/${projectId}/github`);
+        if (!response.ok) throw new Error('Failed to unlink GitHub repository');
+    },
+
+    async syncGithub(projectId: string): Promise<ProjectGithubSyncResult> {
+        const response = await api.post(`/projects/${projectId}/github/sync`, {});
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to sync GitHub repository');
+        }
+        return await response.json();
     },
 };

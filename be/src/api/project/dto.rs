@@ -119,6 +119,9 @@ pub struct CardResponseDto {
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
     pub sprint_id: Option<Uuid>,
+    pub github_issue_number: Option<i32>,
+    pub github_issue_url: Option<String>,
+    pub github_state: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

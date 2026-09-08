@@ -1,3 +1,4 @@
+use crate::api::integrations::github::routes::project_github_routes;
 use crate::api::project::handlers;
 use axum::{
     Router,
@@ -6,6 +7,7 @@ use axum::{
 
 pub fn project_routes() -> Router {
     Router::new()
+        .nest("/{id}/github", project_github_routes())
         .route("/", get(handlers::list_projects_handler))
         .route("/", post(handlers::create_project_handler))
         .route("/{id}", get(handlers::get_project_handler))

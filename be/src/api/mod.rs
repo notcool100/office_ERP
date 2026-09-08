@@ -11,6 +11,7 @@ pub mod daily_log;
 pub mod department;
 pub mod employee;
 pub mod home;
+pub mod integrations;
 pub mod intern;
 pub mod leave;
 pub mod messaging;
