@@ -301,10 +301,17 @@ pub async fn update_face_descriptor(db: &Db, id: Uuid, descriptor: String) -> Re
 }
 
 pub async fn get_all_face_descriptors(db: &Db) -> Result<Vec<(String, String)>> {
-    let rows = sqlx::query_as::<_, (String, String)>(
-        "SELECT employee_id, face_descriptor FROM employees WHERE face_descriptor IS NOT NULL AND status = 'active'"
+    // `id` (the employee's UUID) is what update_face_descriptor keys on, so
+    // the label handed back here must match that - not the human-readable
+    // `employee_id` code - or every face match will fail to resolve back
+    // to an employee record.
+    let rows = sqlx::query_as::<_, (Uuid, String)>(
+        "SELECT id, face_descriptor FROM employees WHERE face_descriptor IS NOT NULL AND status = 'active'"
     )
     .fetch_all(db)
     .await?;
-    Ok(rows)
+    Ok(rows
+        .into_iter()
+        .map(|(id, descriptor)| (id.to_string(), descriptor))
+        .collect())
 }
