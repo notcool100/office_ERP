@@ -779,10 +779,50 @@ pub enum GithubCardSyncOutcome {
     Updated,
 }
 
+/// Returns the id of the board's first column flagged `is_done`, if any.
+async fn resolve_done_column_id(
+    pool: &PgPool,
+    project_id: Uuid,
+) -> Result<Option<Uuid>, ProjectError> {
+    let column_id = sqlx::query_scalar::<_, Uuid>(
+        r#"
+        SELECT bc.id
+        FROM board_columns bc
+        INNER JOIN boards b ON b.id = bc.board_id
+        WHERE b.project_id = $1 AND bc.is_done = true
+        ORDER BY bc.display_order, bc.created_at
+        LIMIT 1
+        "#,
+    )
+    .bind(project_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(column_id)
+}
+
+async fn column_is_done(pool: &PgPool, column_id: Option<Uuid>) -> Result<bool, ProjectError> {
+    let Some(column_id) = column_id else {
+        return Ok(false);
+    };
+
+    let is_done = sqlx::query_scalar::<_, bool>("SELECT is_done FROM board_columns WHERE id = $1")
+        .bind(column_id)
+        .fetch_optional(pool)
+        .await?
+        .unwrap_or(false);
+
+    Ok(is_done)
+}
+
 /// One-way sync (GitHub -> ERP): creates a card for a new issue, or updates
 /// the title/description/state of a card previously imported from the same
-/// issue. Matched by `(project_id, github_issue_number)`. Never moves a card
-/// between columns so manual board organization is preserved.
+/// issue. Matched by `(project_id, github_issue_number)`.
+///
+/// The card is only moved across the done/not-done boundary when the
+/// issue's open/closed state crosses it too (closed -> first `is_done`
+/// column, reopened -> the board's default column) — otherwise its column
+/// is left untouched so manual board organization is preserved.
 pub async fn upsert_card_from_github_issue(
     pool: &PgPool,
     project_id: Uuid,
@@ -790,16 +830,27 @@ pub async fn upsert_card_from_github_issue(
 ) -> Result<GithubCardSyncOutcome, ProjectError> {
     let now = Utc::now().naive_utc();
     let description = normalize_optional_text(issue.description.as_deref(), 20_000);
+    let should_be_done = issue.state == "closed";
 
-    let existing_id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM cards WHERE project_id = $1 AND github_issue_number = $2",
+    let existing = sqlx::query_as::<_, (Uuid, Option<Uuid>)>(
+        "SELECT id, column_id FROM cards WHERE project_id = $1 AND github_issue_number = $2",
     )
     .bind(project_id)
     .bind(issue.number)
     .fetch_optional(pool)
     .await?;
 
-    if let Some(card_id) = existing_id {
+    if let Some((card_id, current_column_id)) = existing {
+        let currently_done = column_is_done(pool, current_column_id).await?;
+
+        let new_column_id = if should_be_done && !currently_done {
+            resolve_done_column_id(pool, project_id).await?
+        } else if !should_be_done && currently_done {
+            Some(resolve_column_id(pool, project_id, None).await?)
+        } else {
+            None
+        };
+
         let mut tx = pool.begin().await?;
 
         sqlx::query(
@@ -810,8 +861,9 @@ pub async fn upsert_card_from_github_issue(
                 github_state = $3,
                 github_issue_url = $4,
                 github_synced_at = $5,
-                updated_at = $5
-            WHERE id = $6
+                updated_at = $5,
+                column_id = COALESCE($6, column_id)
+            WHERE id = $7
             "#,
         )
         .bind(&issue.title)
@@ -819,9 +871,26 @@ pub async fn upsert_card_from_github_issue(
         .bind(&issue.state)
         .bind(&issue.html_url)
         .bind(now)
+        .bind(new_column_id)
         .bind(card_id)
         .execute(&mut *tx)
         .await?;
+
+        if new_column_id.is_some() {
+            log_card_activity_tx(
+                &mut tx,
+                project_id,
+                card_id,
+                None,
+                "moved",
+                format!(
+                    "Auto-moved because GitHub issue #{} was {}",
+                    issue.number, issue.state
+                ),
+                None,
+            )
+            .await?;
+        }
 
         log_card_activity_tx(
             &mut tx,
@@ -838,7 +907,14 @@ pub async fn upsert_card_from_github_issue(
         return Ok(GithubCardSyncOutcome::Updated);
     }
 
-    let column_id = resolve_column_id(pool, project_id, None).await?;
+    let column_id = if should_be_done {
+        match resolve_done_column_id(pool, project_id).await? {
+            Some(id) => id,
+            None => resolve_column_id(pool, project_id, None).await?,
+        }
+    } else {
+        resolve_column_id(pool, project_id, None).await?
+    };
     let display_order = next_card_order(pool, column_id).await?;
 
     let mut tx = pool.begin().await?;
@@ -996,6 +1072,30 @@ pub async fn update_card(
             None,
         )
         .await?;
+
+        if let Some(issue_number) = card.github_issue_number {
+            let was_done = column_is_done(pool, existing.column_id).await?;
+            let is_done = column_is_done(pool, card.column_id).await?;
+            if was_done != is_done {
+                let pool_clone = pool.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::api::integrations::github::service::push_issue_state(
+                        &pool_clone,
+                        project_id,
+                        issue_number,
+                        is_done,
+                    )
+                    .await
+                    {
+                        tracing::error!(
+                            "Failed to push GitHub issue #{} state: {}",
+                            issue_number,
+                            e
+                        );
+                    }
+                });
+            }
+        }
     }
 
     let mut changed_fields: Vec<&str> = Vec::new();

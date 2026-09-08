@@ -203,6 +203,41 @@ pub struct SyncSummary {
 
 /// Fetches issues for a linked project's repo and upserts them as cards,
 /// then records the outcome on `project_github_links`.
+/// Pushes an ERP-side card move into/out of a "done" column to GitHub as an
+/// issue close/reopen. Best-effort: callers run this in the background and
+/// just log failures rather than fail the card move itself.
+pub async fn push_issue_state(
+    pool: &PgPool,
+    project_id: Uuid,
+    issue_number: i32,
+    closed: bool,
+) -> Result<(), GithubError> {
+    let link = get_project_link(pool, project_id)
+        .await?
+        .ok_or(GithubError::NotFound)?;
+
+    let connection = get_connection(pool).await?.ok_or_else(|| {
+        GithubError::BadRequest(
+            "Connect a GitHub account in Settings > Connectors first".to_string(),
+        )
+    })?;
+    let token = crypto::decrypt_token(&connection.access_token_encrypted)
+        .map_err(|e| GithubError::Internal(e.to_string()))?;
+
+    let state = if closed { "closed" } else { "open" };
+    client::set_issue_state(
+        &token,
+        &link.repo_owner,
+        &link.repo_name,
+        issue_number,
+        state,
+    )
+    .await
+    .map_err(|e| GithubError::BadRequest(e.to_string()))?;
+
+    Ok(())
+}
+
 pub async fn sync_project(pool: &PgPool, project_id: Uuid) -> Result<SyncSummary, GithubError> {
     let link = get_project_link(pool, project_id)
         .await?

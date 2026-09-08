@@ -70,6 +70,32 @@ pub async fn validate_repo_access(token: &str, owner: &str, repo: &str) -> Resul
     Ok(())
 }
 
+/// Sets an issue's open/closed state (`state` must be "open" or "closed").
+pub async fn set_issue_state(
+    token: &str,
+    owner: &str,
+    repo: &str,
+    issue_number: i32,
+    state: &str,
+) -> Result<()> {
+    let url = format!("{GITHUB_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}");
+    let resp = request(reqwest::Method::PATCH, &url, token)
+        .json(&serde_json::json!({ "state": state }))
+        .send()
+        .await
+        .map_err(|e| anyhow!("Could not reach GitHub: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Err(anyhow!(
+            "GitHub API returned {} while updating issue #{}",
+            resp.status(),
+            issue_number
+        ));
+    }
+
+    Ok(())
+}
+
 /// Fetches every issue (open and closed, pull requests excluded) for a repo,
 /// following pagination via the `Link` response header.
 pub async fn fetch_issues(token: &str, owner: &str, repo: &str) -> Result<Vec<GitHubIssue>> {
