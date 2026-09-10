@@ -36,6 +36,49 @@ interface RequestOptions extends RequestInit {
     headers?: Record<string, string>;
 }
 
+// The backend rotates the refresh token on every use (old one is invalidated
+// as soon as a new one is issued). If several requests 401 at once — e.g.
+// after the access token expires from being idle and a page fires a few
+// parallel calls on load — each one independently calling /auth/refresh
+// would race: the first rotates the token and succeeds, every other call
+// still holds the now-stale refresh token and gets rejected, which used to
+// trigger logout() and wipe the *valid* tokens the first call had just
+// stored. Sharing a single in-flight refresh across all callers avoids that.
+let refreshInFlight: Promise<{ accessToken: string; refreshToken: string } | null> | null = null;
+
+function refreshTokens(): Promise<{ accessToken: string; refreshToken: string } | null> {
+    if (!refreshInFlight) {
+        refreshInFlight = (async () => {
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (!refreshToken) return null;
+
+            try {
+                const refreshRes = await fetch(buildApiUrl('/auth/refresh'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refreshToken })
+                });
+
+                if (!refreshRes.ok) {
+                    console.error('Token refresh response not OK', refreshRes.status);
+                    return null;
+                }
+
+                const data = await refreshRes.json();
+                localStorage.setItem('access_token', data.accessToken);
+                localStorage.setItem('refresh_token', data.refreshToken);
+                return data;
+            } catch (error) {
+                console.error('Token refresh network failed', error);
+                return null;
+            }
+        })().finally(() => {
+            refreshInFlight = null;
+        });
+    }
+    return refreshInFlight;
+}
+
 async function customFetch(url: string, options: RequestOptions = {}): Promise<Response> {
     const fullUrl = buildApiUrl(url);
 
@@ -61,43 +104,24 @@ async function customFetch(url: string, options: RequestOptions = {}): Promise<R
     if (response.status === 401) {
         if (typeof window === 'undefined') return response;
 
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) {
+        if (!localStorage.getItem('refresh_token')) {
             // No refresh token, force logout
             logout();
             return response;
         }
 
-        try {
-            // Attempt to refresh token
-            const refreshRes = await fetch(buildApiUrl('/auth/refresh'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken })
-            });
-
-            if (refreshRes.ok) {
-                const data = await refreshRes.json();
-                localStorage.setItem('access_token', data.accessToken);
-                localStorage.setItem('refresh_token', data.refreshToken);
-
-                // Retry original request with new token
-                options.headers = {
-                    ...options.headers,
-                    'Authorization': `Bearer ${data.accessToken}`
-                };
-                response = await fetch(fullUrl, options);
-            } else {
-                // Refresh failed (could be 401, 403, 502, etc.)
-                console.error('Token refresh response not OK', refreshRes.status);
-                logout();
-                return refreshRes; // Return the refresh error response
-            }
-        } catch (error) {
-            console.error('Token refresh network failed', error);
+        const tokens = await refreshTokens();
+        if (!tokens) {
             logout();
-            throw error;
+            return response;
         }
+
+        // Retry original request with the (possibly shared) new token
+        options.headers = {
+            ...options.headers,
+            'Authorization': `Bearer ${tokens.accessToken}`
+        };
+        response = await fetch(fullUrl, options);
     }
 
     return response;
