@@ -27,7 +27,13 @@ if (hasReleaseSigning) {
 
 android {
     namespace = "com.adyatech.adya_mobile"
-    compileSdk = flutter.compileSdkVersion
+    // Explicit 36, not flutter.compileSdkVersion (still 34 as of Flutter
+    // 3.44.4) — flutter_plugin_android_lifecycle (pulled in transitively
+    // by camera) now requires compiling against API 36+. This only
+    // changes which APIs are visible to the compiler; targetSdk/minSdk
+    // below are unaffected, so device compatibility and runtime behavior
+    // don't change.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
