@@ -6,7 +6,6 @@
     import { userStore } from '$lib/stores/user';
     import { goto } from '$app/navigation';
     import { messagingService, type Channel } from '$lib/services/messaging';
-    import { meetingService } from '$lib/services/meeting';
     import { userService } from '$lib/services/user-service';
     import type { User } from '$lib/types/user';
     import { Hash, MessageCircle, Plus, Users, X } from 'lucide-svelte';
@@ -104,15 +103,6 @@
         }
     }
 
-    async function handleNewMeeting() {
-        try {
-            const meeting = await meetingService.createMeeting({});
-            goto(`/meetings/${meeting.id}`);
-        } catch (error) {
-            console.error('Failed to create meeting:', error);
-        }
-    }
-
     function getDmName(channel: Channel) {
         // Resolved per-viewer from channel membership, so each side sees
         // the *other* participant's name.
@@ -167,21 +157,6 @@
                             {/each}
                         </div>
                     {/if}
-
-                    <div
-                        class="flex items-center justify-between mt-6 mb-2 text-xs uppercase tracking-wider text-base-content/50 font-bold">
-                        <a
-                            href="/messaging/meetings"
-                            class="hover:text-base-content transition-colors"
-                            >Meetings</a>
-                        <button
-                            class="btn btn-ghost btn-xs p-0 min-h-0 h-4 w-4"
-                            onclick={handleNewMeeting}
-                            title="Start an instant meeting"
-                            aria-label="Start an instant meeting">
-                            <Plus class="w-3 h-3" />
-                        </button>
-                    </div>
 
                     <div
                         class="flex items-center justify-between mt-6 mb-2 text-xs uppercase tracking-wider text-base-content/50 font-bold">

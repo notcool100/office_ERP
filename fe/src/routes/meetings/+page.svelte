@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { meetingService, type Meeting } from '$lib/services/meeting';
-    import { Video, Plus, ArrowRight, Users } from 'lucide-svelte';
+    import { Video, Plus, ArrowRight, Users, Info } from 'lucide-svelte';
 
     let meetings: Meeting[] = $state([]);
     let loading = $state(true);
@@ -147,11 +147,12 @@
             {:else}
                 <div class="space-y-2">
                     {#each meetings as meeting}
-                        <button
-                            type="button"
-                            class="w-full text-left card bg-base-100 border border-base-300 p-4 hover:border-primary transition-colors flex-row items-center justify-between gap-4"
-                            onclick={() => goto(`/meetings/${meeting.id}`)}>
-                            <div class="min-w-0">
+                        <div
+                            class="w-full text-left card bg-base-100 border border-base-300 p-4 hover:border-primary transition-colors flex-row items-center justify-between gap-4">
+                            <button
+                                type="button"
+                                class="min-w-0 text-left flex-1"
+                                onclick={() => goto(`/meetings/${meeting.id}`)}>
                                 <div class="flex items-center gap-2">
                                     <span class="font-semibold truncate"
                                         >{meeting.title || 'Untitled meeting'}</span>
@@ -170,10 +171,27 @@
                                         meeting.created_at,
                                     )}
                                 </p>
+                            </button>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost btn-sm"
+                                    onclick={() => goto(`/meetings/${meeting.id}/details`)}
+                                    title="Meeting details"
+                                    aria-label="View meeting details">
+                                    <Info class="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost btn-sm btn-square"
+                                    onclick={() => goto(`/meetings/${meeting.id}`)}
+                                    title="Join meeting"
+                                    aria-label="Join meeting">
+                                    <ArrowRight
+                                        class="w-4 h-4 text-base-content/30" />
+                                </button>
                             </div>
-                            <ArrowRight
-                                class="w-4 h-4 text-base-content/30 shrink-0" />
-                        </button>
+                        </div>
                     {/each}
                 </div>
             {/if}

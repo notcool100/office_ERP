@@ -29,3 +29,34 @@ pub struct ParticipantResponse {
     pub role: String,
     pub joined_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct AttachmentResponse {
+    pub id: Uuid,
+    pub meeting_id: Uuid,
+    pub uploaded_by: Option<Uuid>,
+    pub uploaded_by_name: Option<String>,
+    pub category: String,
+    pub file_name: String,
+    pub content_type: String,
+    pub file_size: i64,
+    pub created_at: DateTime<Utc>,
+    /// Absolute on-disk path, only ever used internally by the download
+    /// handler — never serialized back to clients.
+    #[serde(skip_serializing)]
+    pub file_path: String,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct MinutesResponse {
+    pub meeting_id: Uuid,
+    pub content: String,
+    pub updated_by: Option<Uuid>,
+    pub updated_by_name: Option<String>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateMinutesRequest {
+    pub content: String,
+}

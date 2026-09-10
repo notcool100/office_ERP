@@ -579,14 +579,26 @@ export class MeetingClient {
         };
         mediaRecorder.onstop = () => {
             const blob = new Blob(chunks, { type: mimeType });
+            const fileName = `meeting-recording-${Date.now()}.webm`;
+
+            // Always offer the local download first — it's instant and free,
+            // and doesn't depend on the upload succeeding.
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `meeting-recording-${Date.now()}.webm`;
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            // Additionally upload the recording so it shows up in the
+            // meeting's Attachments list for every participant. A failed
+            // upload (e.g. network issue) must never break the local
+            // download the user already has.
+            meetingService
+                .uploadAttachment(this.meetingId, new File([blob], fileName, { type: mimeType }), 'recording')
+                .catch((e) => console.error('Failed to upload recording to meeting attachments:', e));
         };
 
         mediaRecorder.start(1000);

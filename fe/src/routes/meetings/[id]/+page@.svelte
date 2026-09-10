@@ -140,7 +140,7 @@
         } catch (e) {
             console.error('Error while leaving meeting:', e);
         } finally {
-            goto('/messaging');
+            goto('/meetings');
         }
     }
 
@@ -218,8 +218,8 @@
         <div class="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
             <AlertTriangle class="text-error" size={40} />
             <p class="max-w-sm opacity-80">{loadError}</p>
-            <button class="btn btn-primary btn-sm" onclick={() => goto('/messaging')}>
-                Back to Messaging
+            <button class="btn btn-primary btn-sm" onclick={() => goto('/meetings')}>
+                Back to Meetings
             </button>
         </div>
     {:else}
