@@ -22,6 +22,7 @@
         Save,
         Users,
     } from 'lucide-svelte';
+    import RichTextEditor from '$lib/components/RichTextEditor.svelte';
 
     const meetingId = $page.params.id;
 
@@ -145,6 +146,11 @@
 
     function canDelete(attachment: MeetingAttachment): boolean {
         return isHost || attachment.uploaded_by === currentUserId;
+    }
+
+    function handleMinutesChange(e: CustomEvent<string>) {
+        minutesContent = e.detail;
+        minutesDirty = true;
     }
 
     async function saveMinutes() {
@@ -341,13 +347,10 @@
                         </p>
                     {/if}
                 </div>
-                <label class="sr-only" for="meeting-minutes-textarea">Meeting minutes</label>
-                <textarea
-                    id="meeting-minutes-textarea"
-                    class="textarea textarea-bordered w-full min-h-[200px]"
+                <RichTextEditor
+                    content={minutesContent}
                     placeholder="Write meeting minutes here…"
-                    bind:value={minutesContent}
-                    oninput={() => (minutesDirty = true)}></textarea>
+                    on:change={handleMinutesChange} />
                 <div class="flex justify-end">
                     <button
                         class="btn btn-primary btn-sm"
