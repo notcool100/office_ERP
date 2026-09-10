@@ -71,6 +71,69 @@ To turn push on:
    **Push Notifications** and **Background Modes → Remote notifications**
    capabilities, then upload an APNs auth key to Firebase.
 
+## CI builds (GitHub Actions)
+
+Two workflows, both under `.github/workflows/`:
+
+- **`mobile-apk.yml`** — an installable APK for handing to testers directly.
+  Signed with the debug keystore (Android requires *some* signature, even
+  for a throwaway build); runs on every push to `main` touching `mobile/`,
+  on `mobile-v*` tags, and on demand. Needs one secret: `GOOGLE_SERVICES_JSON`.
+- **`mobile-aab.yml`** — a properly signed Android App Bundle for the Play
+  Store. Runs on `mobile-v*` tags and on demand. Needs `GOOGLE_SERVICES_JSON`
+  plus four more secrets for release signing (below).
+
+### Play Store releases
+
+Google requires every Play Store app to be signed with the same key for
+the life of the app — generate this **once** and never lose it:
+
+```bash
+keytool -genkeypair -v \
+  -keystore upload-keystore.jks \
+  -storetype JKS \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -alias adya-upload
+```
+
+It'll prompt for a keystore password, your name/org details, and a key
+password (can be the same as the keystore password). **Back this file up
+somewhere durable and private that isn't just this machine** — a password
+manager's file storage, an encrypted drive, etc. If you lose it, you lose
+the ability to ever ship an update to that Play Store listing again; Google
+cannot recover or reset it for you.
+
+Then add these repo secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 upload-keystore.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password you set above |
+| `ANDROID_KEY_ALIAS` | `adya-upload` (or whatever `-alias` you used) |
+| `ANDROID_KEY_PASSWORD` | the key password you set above |
+
+Once those four plus `GOOGLE_SERVICES_JSON` are set, push a tag to trigger
+a release build:
+
+```bash
+git tag mobile-v1.0.0
+git push origin mobile-v1.0.0
+```
+
+Download the `.aab` from the workflow run's Artifacts section and upload it
+to the Play Console yourself — Google requires the *first* release of a new
+app listing to go through the console UI regardless of how it was built;
+there's no way to automate around that one. Once the app exists in the
+Play Console, publishing *subsequent* updates can be automated on top of
+this workflow (e.g. with `r0adkll/upload-google-play`), which needs a Play
+Developer API service account created from the console — a reasonable next
+step once you've done the first manual upload, not before.
+
+Locally, `flutter build appbundle`/`flutter build apk --release` continue
+to work without any of this — they just fall back to debug signing, same
+as before this was added, since `android/key.properties` won't exist on
+your machine unless you create it yourself.
+
 ## Permissions requested at runtime
 
 - **Camera** — check-in/out selfie.
