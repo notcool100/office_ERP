@@ -51,3 +51,10 @@ app.*.map.json
 # local copy for `flutter run` on your own machine.
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
+
+# Play Store release signing. Losing this keystore means losing the
+# ability to ever publish an update to the same Play Store listing — keep
+# your own backup somewhere safe (a password manager's file storage, not
+# just this machine), it must never be regenerated after the first upload.
+android/key.properties
+android/app/upload-keystore.jks
