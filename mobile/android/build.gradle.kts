@@ -33,10 +33,21 @@ subprojects {
 // itself declares, and needs no per-plugin fix again if another one hits
 // the same wall in the future.
 subprojects {
-    afterEvaluate {
+    val applyCompileSdk: () -> Unit = {
         extensions.findByType<com.android.build.gradle.BaseExtension>()?.let { android ->
             android.compileSdkVersion(36)
         }
+    }
+    // The evaluationDependsOn(":app") above can cascade into evaluating
+    // some plugin subprojects earlier than Gradle's normal per-project
+    // order — by the time this block runs for one of them, it may already
+    // be fully evaluated, and afterEvaluate throws in that case rather
+    // than just running immediately. Apply directly when that's already
+    // happened; otherwise defer the normal way.
+    if (project.state.executed) {
+        applyCompileSdk()
+    } else {
+        afterEvaluate { applyCompileSdk() }
     }
 }
 
