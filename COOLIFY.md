@@ -33,6 +33,13 @@ Create a new Coolify app using the `be` folder as the build context.
 
 The backend listens on `0.0.0.0:3117` by default.
 
+**Persistent storage:** in the Coolify app's Storage tab, add a persistent
+volume mounted at `/app/uploads`. This is where uploaded company branding
+(logo/favicon) is written. Without it, every redeploy starts from a fresh
+container filesystem, `company_settings` keeps pointing at files that no
+longer exist, and the logo/favicon requests 404 (which browsers report as
+"blocked by OpaqueResponseBlocking" since the 404 body isn't image data).
+
 ## 3. Deploy the frontend app
 
 Create a second Coolify app using the `fe` folder.
@@ -87,6 +94,8 @@ services:
     environment:
       PORT: 3117
       DATABASE_URL: postgres://office:office@db:5432/office
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       - db
 
@@ -104,6 +113,7 @@ services:
 
 volumes:
   db-data:
+  uploads-data:
 ```
 
 ## 6. What was added

@@ -75,10 +75,21 @@ pub async fn get_company_name(pool: &PgPool) -> String {
 /// Fills in the bundled default logo/favicon on first boot (or whenever
 /// either is unset), so company_settings always has real images behind it
 /// instead of a null/placeholder state.
+async fn file_missing(path: &Option<String>) -> bool {
+    match path {
+        None => true,
+        // The uploads directory isn't guaranteed to survive a redeploy
+        // (e.g. no persistent volume mounted), so a stale DB row can point
+        // at a file that no longer exists on disk. Re-seed in that case too,
+        // otherwise the logo/favicon endpoints keep 404ing forever.
+        Some(p) => !tokio::fs::try_exists(p).await.unwrap_or(false),
+    }
+}
+
 pub async fn ensure_default_branding(pool: &PgPool) -> Result<(), CompanySettingsError> {
     let row = get_row(pool).await?;
 
-    if row.logo_path.is_none() {
+    if file_missing(&row.logo_path).await {
         let path = store_image("default-logo.jpeg", DEFAULT_LOGO_BYTES).await?;
         sqlx::query(
             "UPDATE company_settings SET logo_path = $1, logo_content_type = $2 WHERE id = $3",
@@ -90,7 +101,7 @@ pub async fn ensure_default_branding(pool: &PgPool) -> Result<(), CompanySetting
         .await?;
     }
 
-    if row.favicon_path.is_none() {
+    if file_missing(&row.favicon_path).await {
         let path = store_image("default-favicon.png", DEFAULT_FAVICON_BYTES).await?;
         sqlx::query(
             "UPDATE company_settings SET favicon_path = $1, favicon_content_type = $2 WHERE id = $3",

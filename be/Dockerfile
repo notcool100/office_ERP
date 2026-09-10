@@ -20,6 +20,11 @@ COPY --from=builder /usr/src/app/target/release/be /usr/local/bin/be
 COPY --from=builder /usr/src/app/target/release/seed /usr/local/bin/seed
 WORKDIR /app
 
+# Uploaded company branding (logo/favicon) lives here. Mount a persistent
+# volume at this path in production, otherwise every redeploy wipes it and
+# company_settings ends up pointing at files that no longer exist on disk.
+VOLUME ["/app/uploads"]
+
 EXPOSE 3117
 ENV PORT=3117
 CMD ["be"]
