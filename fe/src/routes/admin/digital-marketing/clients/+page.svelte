@@ -4,7 +4,7 @@
     import {
         Home, Megaphone, Briefcase, Plus, Pencil, Trash2,
         Search, X, ChevronDown, ChevronRight, AlertCircle, Clock,
-        Building2, Mail, Phone, Globe, PackageCheck
+        Building2, Mail, Phone, Globe, PackageCheck, Eye
     } from 'lucide-svelte';
     import { onMount } from 'svelte';
     import { navigationStore, canCreate, canUpdate, canDelete } from '$lib/stores/navigation';
@@ -461,6 +461,10 @@
 
                             <!-- Actions -->
                             <div class="flex gap-1">
+                                <a class="btn btn-ghost btn-xs" title="View client"
+                                    href={`/admin/digital-marketing/clients/${c.id}`}>
+                                    <Eye size={13}/>
+                                </a>
                                 {#if canCreate(navPath, $navigationStore)}
                                     <button class="btn btn-ghost btn-xs" title="Add deliverable"
                                         on:click={() => openDelivCreate(c.id)}>

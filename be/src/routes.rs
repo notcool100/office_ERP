@@ -9,7 +9,9 @@ use crate::api::{
     marketing_reports::routes::marketing_report_routes,
     media_library::routes::media_library_routes,
     daily_log::routes::daily_log_routes,
-    department::routes::department_routes, employee::routes::employee_routes,
+    department::routes::department_routes,
+    documents::{dto::DocCategory, routes::documents_routes_for},
+    employee::routes::employee_routes,
     home::handlers::health_check_handler,
     integrations::github::routes::github_connection_routes, intern::routes::intern_routes,
     leave::routes::leave_routes, meetings::routes::meetings_routes,
@@ -71,6 +73,21 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
         .nest(
             "/media-library",
             media_library_routes().layer(rbac::require_permission("/admin/digital-marketing/media-library")),
+        )
+        .nest(
+            "/documents/company",
+            documents_routes_for(DocCategory::Company)
+                .layer(rbac::require_permission("/admin/documents/company")),
+        )
+        .nest(
+            "/documents/client",
+            documents_routes_for(DocCategory::Client)
+                .layer(rbac::require_permission("/admin/documents/client")),
+        )
+        .nest(
+            "/documents/employee",
+            documents_routes_for(DocCategory::Employee)
+                .layer(rbac::require_permission("/admin/hr/employee")),
         )
         .nest(
             "/projects",

@@ -112,6 +112,12 @@ export const clientService = {
     return res.json();
   },
 
+  async getClient(id: string): Promise<Client> {
+    const res = await api.get(`${BASE}/clients/${id}`);
+    if (!res.ok) throw new Error('Failed to load client');
+    return res.json();
+  },
+
   async createClient(dto: object): Promise<Client> {
     const res = await api.post(`${BASE}/clients`, dto);
     if (!res.ok) { const t = await res.text(); throw new Error(t || 'Failed to create'); }

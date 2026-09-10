@@ -9,6 +9,7 @@
         Search,
         Edit,
         Trash2,
+        Eye,
     } from 'lucide-svelte';
     import PageSection from '../../../../components/PageSection.svelte';
     import * as employeeService from '$lib/services/employee';
@@ -286,6 +287,12 @@
                             </td>
                             <td>
                                 <div class="flex gap-2">
+                                    <a
+                                        class="btn btn-sm btn-ghost"
+                                        title="View employee"
+                                        href={`/admin/hr/employee/${employee.id}`}>
+                                        <Eye size={16} />
+                                    </a>
                                     <button
                                         class="btn btn-sm btn-ghost"
                                         disabled={!canUpdateHere}
