@@ -75,7 +75,12 @@ jobs:
       - name: Cache pub packages
         uses: actions/cache@v4
         with:
-          path: ~/.pub-cache
+          # Only the downloaded package archives — not all of ~/.pub-cache,
+          # which can also hold pub's OAuth credentials file. A stale or
+          # invalid cached credential there is enough to make an unrelated,
+          # fully public package resolve as "Package not available
+          # (authorization failed)" on a later run.
+          path: ~/.pub-cache/hosted
           key: pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.lock') }}
           restore-keys: |
             pub-${{ runner.os }}-
@@ -118,7 +123,12 @@ jobs:
           EOF
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          if ! flutter pub get; then
+            echo "::warning::flutter pub get failed — clearing the pub cache and retrying once, in case a cached package archive or credential is stale."
+            rm -rf ~/.pub-cache/hosted
+            flutter pub get
+          fi
 
       - name: Analyze
         run: flutter analyze
