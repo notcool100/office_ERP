@@ -12,7 +12,8 @@ use crate::api::{
     department::routes::department_routes, employee::routes::employee_routes,
     home::handlers::health_check_handler,
     integrations::github::routes::github_connection_routes, intern::routes::intern_routes,
-    leave::routes::leave_routes, messaging::routes::messaging_routes,
+    leave::routes::leave_routes, meetings::routes::meetings_routes,
+    messaging::routes::messaging_routes,
     navigation::routes::navigation_routes,
     payroll::routes::{payroll_my_routes, payroll_routes},
     notification_settings::routes::notification_settings_routes,
@@ -98,6 +99,7 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
             user_routes().layer(rbac::require_permission("/admin/settings/user")),
         )
         .nest("/messaging", messaging_routes(hub.clone()))
+        .nest("/meetings", meetings_routes(hub.clone()))
         .nest("/notification-settings", notification_settings_routes())
         .route_layer(axum::middleware::from_fn(
             crate::middlewares::auth::authenticate,
@@ -108,6 +110,12 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
         .route(
             "/ws/notifications",
             get(crate::ws::notification_ws_handler).layer(axum::middleware::from_fn(
+                crate::middlewares::auth::authenticate,
+            )),
+        )
+        .route(
+            "/ws/meetings/{meeting_id}",
+            get(crate::ws::meeting::meeting_ws_handler).layer(axum::middleware::from_fn(
                 crate::middlewares::auth::authenticate,
             )),
         )

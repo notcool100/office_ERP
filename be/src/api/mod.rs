@@ -15,6 +15,7 @@ pub mod home;
 pub mod integrations;
 pub mod intern;
 pub mod leave;
+pub mod meetings;
 pub mod messaging;
 pub mod navigation;
 pub mod notification_settings;

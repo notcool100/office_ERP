@@ -1,4 +1,5 @@
 pub mod hub;
+pub mod meeting;
 
 use crate::ws::hub::Hub;
 use axum::extract::ws as ax_ws;

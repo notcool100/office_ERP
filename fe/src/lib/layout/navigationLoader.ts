@@ -41,6 +41,7 @@ import {
     Briefcase,
     Menu,
     ShieldCheck,
+    Video,
 } from 'lucide-svelte';
 
 const iconMap: Record<string, any> = {
@@ -77,6 +78,7 @@ const iconMap: Record<string, any> = {
     Briefcase,
     Menu,
     ShieldCheck,
+    Video,
     'mdi-office-building': Building2,
     'mdi-briefcase': Briefcase,
     'mdi-menu': Menu,

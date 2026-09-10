@@ -1,12 +1,14 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
     import {
         messagingService,
         type Message,
         type Channel,
         type ChannelMember,
     } from '$lib/services/messaging';
+    import { meetingService } from '$lib/services/meeting';
     import { userStore } from '$lib/stores/user';
     import { userService } from '$lib/services/user-service';
     import type { User } from '$lib/types/user';
@@ -19,10 +21,13 @@
         Bell,
         Star,
         UserPlus,
+        Video,
         X,
         MessageSquare,
     } from 'lucide-svelte';
     import { fade } from 'svelte/transition';
+
+    let startingMeeting = $state(false);
 
     let channelId = $state($page.params.id);
     let channel: Channel | null = $state(null);
@@ -146,6 +151,21 @@
         } catch (error) {
             console.error('Failed to send message:', error);
             newMessage = content; // restore
+        }
+    }
+
+    async function handleStartMeeting() {
+        if (startingMeeting) return;
+        startingMeeting = true;
+        try {
+            const meeting = await meetingService.createMeeting({
+                channel_id: channelId,
+            });
+            goto(`/meetings/${meeting.id}`);
+        } catch (error) {
+            console.error('Failed to start meeting:', error);
+        } finally {
+            startingMeeting = false;
         }
     }
 
@@ -342,6 +362,18 @@
                 placeholder="Search..."
                 class="join-item bg-base-100 px-2 outline-none w-32 focus:w-48 transition-all" />
         </div>
+        <button
+            class="btn btn-ghost btn-sm btn-square"
+            onclick={handleStartMeeting}
+            disabled={startingMeeting}
+            title="Start meeting"
+            aria-label="Start meeting">
+            {#if startingMeeting}
+                <span class="loading loading-spinner loading-xs"></span>
+            {:else}
+                <Video class="w-5 h-5" />
+            {/if}
+        </button>
         <button class="btn btn-ghost btn-sm btn-square">
             <Bell class="w-5 h-5" />
         </button>

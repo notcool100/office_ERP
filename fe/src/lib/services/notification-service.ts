@@ -38,6 +38,14 @@ export const notificationService = {
 
                         this.updateTabTitle();
                     }
+                } else if (data.message_type === 'meeting_created') {
+                    const meeting = data.payload;
+                    notifications.add({
+                        title: `${meeting.host_name || 'Someone'} started a meeting`,
+                        message: meeting.title || 'Join the call now',
+                        type: 'info',
+                        duration: 8000
+                    });
                 }
             } catch (e) {
                 console.error('Error parsing notification message:', e);
