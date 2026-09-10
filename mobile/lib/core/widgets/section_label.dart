@@ -23,7 +23,7 @@ class SectionLabel extends StatelessWidget {
                   color: colors.textFaint,
                 ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );

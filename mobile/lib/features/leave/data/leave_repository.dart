@@ -71,7 +71,7 @@ class LeaveRepository {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/mobile/leave/requests/$id/approve',
-        data: {if (notes != null) 'notes': notes},
+        data: {'notes': ?notes},
       );
       return LeaveRequest.fromJson(response.data!);
     } catch (e) {
@@ -83,7 +83,7 @@ class LeaveRepository {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/mobile/leave/requests/$id/reject',
-        data: {if (notes != null) 'notes': notes},
+        data: {'notes': ?notes},
       );
       return LeaveRequest.fromJson(response.data!);
     } catch (e) {

@@ -38,7 +38,13 @@ typedef SessionExpiredCallback = void Function();
 /// each refresh independently, and a slower response can land with an
 /// already-superseded token and log the user out.
 class ApiClient {
+  // Not `this._onSessionExpired`: the field is private and the
+  // constructor parameter isn't, so callers outside this library can
+  // pass `onSessionExpired:` — an initializing formal would force the
+  // argument label to match the private field name, which is invisible
+  // outside this file.
   ApiClient({SessionExpiredCallback? onSessionExpired})
+      // ignore: prefer_initializing_formals
       : _onSessionExpired = onSessionExpired {
     _dio = Dio(
       BaseOptions(

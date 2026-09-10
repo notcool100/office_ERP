@@ -47,7 +47,7 @@ class AttendanceRepository {
           'image': imageBase64,
           'latitude': latitude,
           'longitude': longitude,
-          if (notes != null) 'notes': notes,
+          'notes': ?notes,
         },
       );
       return AttendanceRecord.fromJson(response.data!);
@@ -67,7 +67,7 @@ class AttendanceRepository {
         data: {
           'latitude': latitude,
           'longitude': longitude,
-          if (notes != null) 'notes': notes,
+          'notes': ?notes,
         },
       );
       return AttendanceRecord.fromJson(response.data!);
