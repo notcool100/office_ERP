@@ -26,6 +26,7 @@
         Loader2,
         AlertTriangle,
         Crown,
+        OctagonX,
     } from 'lucide-svelte';
 
     const meetingId = $page.params.id;
@@ -56,8 +57,14 @@
     let chatContainer: HTMLDivElement | null = $state(null);
 
     let leaving = $state(false);
+    let ending = $state(false);
     let endedNoticeShown = $state(false);
 
+    let isHost = $derived.by(() => {
+        const currentMeeting = meeting;
+        const currentUserId = $userStore.user?.id;
+        return !!currentMeeting && currentMeeting.host_id === currentUserId;
+    });
     let remoteParticipants = $derived(Object.values(clientState.participants) as RemoteParticipant[]);
     let tileCount = $derived(1 + remoteParticipants.length);
     let gridCols = $derived(Math.min(4, Math.ceil(Math.sqrt(tileCount || 1))));
@@ -141,6 +148,23 @@
             console.error('Error while leaving meeting:', e);
         } finally {
             goto('/meetings');
+        }
+    }
+
+    async function handleEndMeeting() {
+        if (ending || leaving) return;
+        ending = true;
+        try {
+            await meetingService.endMeeting(meetingId);
+        } catch (e) {
+            console.error('Error while ending meeting:', e);
+        } finally {
+            // The host's own client also just leaves like any other
+            // participant — the "end" call above is what marks the
+            // meeting itself ended and broadcasts "meeting_ended" to
+            // kick everyone else out.
+            await handleLeave();
+            ending = false;
         }
     }
 
@@ -468,10 +492,26 @@
 
             <div class="w-px h-8 bg-neutral-content/10 mx-1"></div>
 
+            {#if isHost}
+                <button
+                    class="btn btn-error gap-1.5"
+                    onclick={handleEndMeeting}
+                    disabled={ending || leaving}
+                    title="End meeting for everyone"
+                    aria-label="End meeting for everyone">
+                    {#if ending}
+                        <Loader2 size={18} class="animate-spin" />
+                    {:else}
+                        <OctagonX size={18} />
+                    {/if}
+                    End for everyone
+                </button>
+            {/if}
+
             <button
                 class="btn btn-circle btn-error"
                 onclick={handleLeave}
-                disabled={leaving}
+                disabled={leaving || ending}
                 title="Leave meeting"
                 aria-label="Leave meeting">
                 {#if leaving}
