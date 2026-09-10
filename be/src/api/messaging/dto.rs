@@ -40,3 +40,10 @@ pub struct MessageResponse {
     pub content: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ChannelMemberResponse {
+    pub id: Uuid,
+    pub display_name: String,
+    pub email: String,
+}

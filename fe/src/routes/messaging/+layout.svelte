@@ -104,8 +104,11 @@
     }
 
     function getDmName(channel: Channel) {
-        // Try to extract the other user's name from description or logic
-        // E.g. description is "Direct message with Alice"
+        // Resolved per-viewer from channel membership, so each side sees
+        // the *other* participant's name.
+        if (channel.dm_other_user_name) return channel.dm_other_user_name;
+        // Fallback for the instant after creating a DM, before the created
+        // channel has been refetched with dm_other_user_name populated.
         if (channel.description?.startsWith('Direct message with ')) {
             return channel.description.replace('Direct message with ', '');
         }

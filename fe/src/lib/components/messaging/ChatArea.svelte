@@ -5,6 +5,7 @@
         messagingService,
         type Message,
         type Channel,
+        type ChannelMember,
     } from '$lib/services/messaging';
     import { userStore } from '$lib/stores/user';
     import { userService } from '$lib/services/user-service';
@@ -44,26 +45,20 @@
     let updatingChannel = $state(false);
 
     // Member list state
-    let channelMembers: User[] = $state([]);
+    let channelMembers: ChannelMember[] = $state([]);
     let loadingMembers = $state(false);
 
     // Mentions state
     let showMentions = $state(false);
     let mentionSearch = $state('');
     let filteredMentions = $derived.by(() => {
-        let all = [
+        let all: ChannelMember[] = [
             ...channelMembers,
-            {
-                id: 'everyone',
-                userName: 'everyone',
-                user_name: 'everyone',
-            } as any,
+            { id: 'everyone', display_name: 'everyone', email: '' },
         ];
         if (!mentionSearch) return all;
         const lower = mentionSearch.toLowerCase();
-        return all.filter((u) =>
-            (u.userName || u.user_name).toLowerCase().includes(lower),
-        );
+        return all.filter((u) => u.display_name.toLowerCase().includes(lower));
     });
     let mentionSelectedIndex = $state(0);
 
@@ -140,8 +135,14 @@
         newMessage = '';
 
         try {
-            await messagingService.sendMessage(channelId, content);
-            // Optimistic update or WS will handle it. WS is safer for ordering.
+            const sent = await messagingService.sendMessage(channelId, content);
+            // Show it immediately rather than waiting on the WS broadcast to
+            // loop back to us; the WS handler already dedupes by message id
+            // if it arrives afterwards.
+            if (!messages.find((m) => m.id === sent.id)) {
+                messages = [...messages, sent];
+                scrollToBottom();
+            }
         } catch (error) {
             console.error('Failed to send message:', error);
             newMessage = content; // restore
@@ -159,6 +160,7 @@
     function getChannelDisplayName(c: Channel | null) {
         if (!c) return 'Loading...';
         if (c.is_private && c.name.startsWith('DM-')) {
+            if (c.dm_other_user_name) return c.dm_other_user_name;
             if (c.description?.startsWith('Direct message with ')) {
                 return c.description.replace('Direct message with ', '');
             }
@@ -261,9 +263,9 @@
         }
     }
 
-    function insertMention(user: User) {
+    function insertMention(user: ChannelMember) {
         if (!textareaRef) return;
-        const name = (user as any).user_name || user.userName;
+        const name = user.display_name;
         const text = newMessage;
         const cursor = textareaRef.selectionStart;
 
@@ -423,12 +425,10 @@
                             onclick={() => insertMention(user)}>
                             <div
                                 class="w-6 h-6 rounded bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
-                                {((user as any).user_name ||
-                                    user.userName)[0].toUpperCase()}
+                                {user.display_name[0].toUpperCase()}
                             </div>
                             <span class="text-sm font-medium"
-                                >@{(user as any).user_name ||
-                                    user.userName}</span>
+                                >@{user.display_name}</span>
                         </button>
                     </li>
                 {/each}
@@ -621,8 +621,7 @@
                             <li
                                 class="flex items-center justify-between p-2 rounded hover:bg-base-200 transition-colors">
                                 <span class="font-medium text-sm"
-                                    >{(member as any).user_name ||
-                                        member.userName}</span>
+                                    >{member.display_name}</span>
                                 {#if member.id !== $userStore.user?.id}
                                     <button
                                         class="btn btn-ghost btn-xs text-error"

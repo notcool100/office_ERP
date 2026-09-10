@@ -87,7 +87,7 @@ pub async fn send_message_handler(
     State(hub): State<Arc<Hub>>,
     Path(channel_id): Path<Uuid>,
     Json(payload): Json<SendMessageRequest>,
-) -> Result<(StatusCode, Json<crate::models::messaging::Message>), StatusCode> {
+) -> Result<(StatusCode, Json<crate::api::messaging::dto::MessageResponse>), StatusCode> {
     let message = service::send_message(&db, channel_id, user.id, payload)
         .await
         .map_err(|e| {
@@ -120,7 +120,13 @@ pub async fn list_channel_members_handler(
     Extension(db): Extension<Db>,
     Extension(user): Extension<User>,
     Path(channel_id): Path<Uuid>,
-) -> Result<(StatusCode, Json<Vec<User>>), StatusCode> {
+) -> Result<
+    (
+        StatusCode,
+        Json<Vec<crate::api::messaging::dto::ChannelMemberResponse>>,
+    ),
+    StatusCode,
+> {
     let members = service::list_channel_members(&db, channel_id, user.id)
         .await
         .map_err(|e| {

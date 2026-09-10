@@ -11,6 +11,13 @@ pub struct Channel {
     pub is_private: bool,
     pub created_at: DateTime<Utc>,
     pub created_by: Option<Uuid>,
+    /// For a DM (private, 2-member) channel: the display name of the other
+    /// participant, resolved per-viewer so each side sees the other
+    /// person's name rather than a name baked into `description` at
+    /// creation time. Null for non-DM channels, and also right after
+    /// `INSERT ... RETURNING *` where the query doesn't select it.
+    #[sqlx(default)]
+    pub dm_other_user_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]

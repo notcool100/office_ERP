@@ -7,6 +7,13 @@ export interface Channel {
     is_private: boolean;
     created_at: string;
     created_by?: string;
+    dm_other_user_name?: string | null;
+}
+
+export interface ChannelMember {
+    id: string;
+    display_name: string;
+    email: string;
 }
 
 export interface Message {
@@ -60,7 +67,7 @@ export const messagingService = {
         return res.json();
     },
 
-    async getChannelMembers(channelId: string): Promise<any[]> {
+    async getChannelMembers(channelId: string): Promise<ChannelMember[]> {
         const res = await api.get(`/messaging/channels/${channelId}/members`);
         if (!res.ok) throw new Error('Failed to list members');
         return res.json();

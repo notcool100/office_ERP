@@ -1,7 +1,7 @@
 use crate::{
     api::messaging::dto::{CreateChannelRequest, MessageResponse, SendMessageRequest},
     db::Db,
-    models::messaging::{Channel, Message},
+    models::messaging::Channel,
 };
 use anyhow::{Result, anyhow};
 use uuid::Uuid;
@@ -9,7 +9,11 @@ use uuid::Uuid;
 pub async fn get_channel(db: &Db, channel_id: Uuid, user_id: Uuid) -> Result<Channel> {
     let channel = sqlx::query_as::<_, Channel>(
         r#"
-        SELECT c.* 
+        SELECT c.*,
+            (SELECT u.user_name FROM channel_members cm2
+             JOIN users u ON u.id = cm2.user_id
+             WHERE cm2.channel_id = c.id AND cm2.user_id != $2
+             LIMIT 1) as dm_other_user_name
         FROM channels c
         LEFT JOIN channel_members cm ON c.id = cm.channel_id
         WHERE c.id = $1 AND (c.is_private = false OR cm.user_id = $2)
@@ -26,7 +30,11 @@ pub async fn get_channel(db: &Db, channel_id: Uuid, user_id: Uuid) -> Result<Cha
 pub async fn list_channels(db: &Db, user_id: Uuid) -> Result<Vec<Channel>> {
     let channels = sqlx::query_as::<_, Channel>(
         r#"
-        SELECT DISTINCT c.* 
+        SELECT DISTINCT c.*,
+            (SELECT u.user_name FROM channel_members cm2
+             JOIN users u ON u.id = cm2.user_id
+             WHERE cm2.channel_id = c.id AND cm2.user_id != $1
+             LIMIT 1) as dm_other_user_name
         FROM channels c
         LEFT JOIN channel_members cm ON c.id = cm.channel_id
         WHERE c.is_private = false OR cm.user_id = $1
@@ -86,9 +94,12 @@ pub async fn create_channel(
 pub async fn list_messages(db: &Db, channel_id: Uuid, limit: i64) -> Result<Vec<MessageResponse>> {
     let messages = sqlx::query_as::<_, MessageResponse>(
         r#"
-        SELECT m.id, m.channel_id, m.sender_id, u.user_name as sender_name, m.content, m.created_at
+        SELECT m.id, m.channel_id, m.sender_id,
+            CONCAT(p.first_name, ' ', p.last_name) as sender_name,
+            m.content, m.created_at
         FROM messages m
         LEFT JOIN users u ON m.sender_id = u.id
+        LEFT JOIN persons p ON u.person_id = p.id
         WHERE m.channel_id = $1
         ORDER BY m.created_at DESC
         LIMIT $2
@@ -107,8 +118,11 @@ pub async fn send_message(
     channel_id: Uuid,
     sender_id: Uuid,
     req: SendMessageRequest,
-) -> Result<Message> {
-    // Verify user is a member of the channel
+) -> Result<MessageResponse> {
+    // Verify user is a member of the channel, auto-joining them if the
+    // channel is public (list_channels/get_channel already expose public
+    // channels to every user, so sending should not require a prior
+    // explicit join).
     let is_member = sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS(SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2)",
     )
@@ -118,14 +132,41 @@ pub async fn send_message(
     .await?;
 
     if !is_member {
-        return Err(anyhow!("User is not a member of this channel"));
+        let is_private = sqlx::query_scalar::<_, bool>(
+            "SELECT is_private FROM channels WHERE id = $1",
+        )
+        .bind(channel_id)
+        .fetch_optional(db)
+        .await?
+        .ok_or_else(|| anyhow!("Channel not found"))?;
+
+        if is_private {
+            return Err(anyhow!("User is not a member of this channel"));
+        }
+
+        sqlx::query(
+            "INSERT INTO channel_members (channel_id, user_id, role) VALUES ($1, $2, 'member') \
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(channel_id)
+        .bind(sender_id)
+        .execute(db)
+        .await?;
     }
 
-    let message = sqlx::query_as::<_, Message>(
+    let message = sqlx::query_as::<_, MessageResponse>(
         r#"
-        INSERT INTO messages (id, channel_id, sender_id, content, parent_id)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *
+        WITH inserted AS (
+            INSERT INTO messages (id, channel_id, sender_id, content, parent_id)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, channel_id, sender_id, content, created_at
+        )
+        SELECT i.id, i.channel_id, i.sender_id,
+            CONCAT(p.first_name, ' ', p.last_name) as sender_name,
+            i.content, i.created_at
+        FROM inserted i
+        LEFT JOIN users u ON i.sender_id = u.id
+        LEFT JOIN persons p ON u.person_id = p.id
         "#,
     )
     .bind(Uuid::new_v4())
@@ -198,9 +239,7 @@ pub async fn list_channel_members(
     db: &Db,
     channel_id: Uuid,
     user_id: Uuid,
-) -> Result<Vec<crate::models::user::User>> {
-    // Note: User model might need to be imported or we can map to a specific dto. We will return the models::user::User.
-
+) -> Result<Vec<crate::api::messaging::dto::ChannelMemberResponse>> {
     // First verify user is a member/can access
     let can_access = sqlx::query_scalar::<_, bool>(
         r#"
@@ -220,10 +259,11 @@ pub async fn list_channel_members(
         return Err(anyhow!("User does not have access to this channel"));
     }
 
-    let members = sqlx::query_as::<_, crate::models::user::User>(
+    let members = sqlx::query_as::<_, crate::api::messaging::dto::ChannelMemberResponse>(
         r#"
-        SELECT u.* 
+        SELECT u.id, CONCAT(p.first_name, ' ', p.last_name) as display_name, u.email
         FROM users u
+        LEFT JOIN persons p ON u.person_id = p.id
         INNER JOIN channel_members cm ON u.id = cm.user_id
         WHERE cm.channel_id = $1
         "#,
