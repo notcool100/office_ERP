@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase config — identifies a specific project (adya-technologies-erp)
+# and isn't meant to travel with the source tree. Supply it per-environment
+# the same way backend.env/frontend.env are handled (see ../COOLIFY.md):
+# an Azure DevOps Secure File copied into place during the pipeline, or a
+# local copy for `flutter run` on your own machine.
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist

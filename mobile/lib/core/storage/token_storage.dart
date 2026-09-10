@@ -7,9 +7,11 @@ class TokenStorage {
   TokenStorage._();
   static final TokenStorage instance = TokenStorage._();
 
-  final _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  // Android's own default options already resolve to the platform's
+  // recommended keystore-backed storage — `encryptedSharedPreferences` is
+  // a deprecated override as of flutter_secure_storage 10.x (silently
+  // ignored; Android migrates existing data automatically).
+  final _storage = const FlutterSecureStorage();
 
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';

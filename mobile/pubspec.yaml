@@ -21,7 +21,11 @@ dependencies:
   connectivity_plus: ^6.1.0
 
   # Local storage / secure token storage
-  flutter_secure_storage: ^9.2.2
+  # 10.x, not 9.x — 9.x's vendored flutter_secure_storage_linux ships a
+  # copy of nlohmann/json using a C++ literal-operator syntax that newer
+  # Clang (22+, what Arch ships) treats as a hard error under -Werror.
+  # 10.x pulls in flutter_secure_storage_linux ^3.0.1, which fixed it.
+  flutter_secure_storage: ^10.3.1
   shared_preferences: ^2.3.3
 
   # Navigation
@@ -70,6 +74,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+# flutter_html 3.0.0 reaches into html's internal (non-exported)
+# query_selector.dart for a top-level `matches()` function that html
+# removed in 0.15.7 — pub's normal resolver has no way to know that, since
+# flutter_html's own constraint (^0.15.5) is technically still satisfied.
+# Pin to the last version that still has it. Safe to drop once flutter_html
+# ships a fix (tracked upstream) or this app moves off flutter_html.
+dependency_overrides:
+  html: 0.15.6
 
 flutter:
   uses-material-design: true
