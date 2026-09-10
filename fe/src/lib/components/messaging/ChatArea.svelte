@@ -24,8 +24,14 @@
         Video,
         X,
         MessageSquare,
+        Paperclip,
+        Image as ImageIcon,
+        FileText,
     } from 'lucide-svelte';
     import { fade } from 'svelte/transition';
+    import MessageAttachments from './MessageAttachments.svelte';
+    import SharedMediaPanel from './SharedMediaPanel.svelte';
+    import { formatFileSize } from '$lib/services/documents';
 
     let startingMeeting = $state(false);
 
@@ -69,11 +75,31 @@
 
     let textareaRef: HTMLTextAreaElement | null = $state(null);
 
+    // Attachments
+    let fileInputRef: HTMLInputElement | null = $state(null);
+    let selectedFiles: File[] = $state([]);
+    let sendingMessage = $state(false);
+    let showMediaPanel = $state(false);
+
+    function handleFilePick(e: Event) {
+        const target = e.target as HTMLInputElement;
+        if (target.files) {
+            selectedFiles = [...selectedFiles, ...Array.from(target.files)];
+        }
+        target.value = '';
+    }
+
+    function removeSelectedFile(index: number) {
+        selectedFiles = selectedFiles.filter((_, i) => i !== index);
+    }
+
     // Re-load when channel changes
     $effect(() => {
         if ($page.params.id !== channelId) {
             channelId = $page.params.id;
             channel = null;
+            selectedFiles = [];
+            showMediaPanel = false;
             loadChannel();
             loadMessages();
             connectWs();
@@ -134,13 +160,17 @@
 
     async function sendMessage(e?: Event) {
         if (e) e.preventDefault();
-        if (!newMessage.trim()) return;
+        if (!newMessage.trim() && selectedFiles.length === 0) return;
+        if (sendingMessage) return;
 
         const content = newMessage;
+        const files = selectedFiles;
         newMessage = '';
+        selectedFiles = [];
+        sendingMessage = true;
 
         try {
-            const sent = await messagingService.sendMessage(channelId, content);
+            const sent = await messagingService.sendMessage(channelId, content, files);
             // Show it immediately rather than waiting on the WS broadcast to
             // loop back to us; the WS handler already dedupes by message id
             // if it arrives afterwards.
@@ -151,6 +181,9 @@
         } catch (error) {
             console.error('Failed to send message:', error);
             newMessage = content; // restore
+            selectedFiles = files;
+        } finally {
+            sendingMessage = false;
         }
     }
 
@@ -377,6 +410,13 @@
         <button class="btn btn-ghost btn-sm btn-square">
             <Bell class="w-5 h-5" />
         </button>
+        <button
+            class="btn btn-ghost btn-sm btn-square"
+            onclick={() => (showMediaPanel = true)}
+            title="Shared media"
+            aria-label="Shared media">
+            <ImageIcon class="w-5 h-5" />
+        </button>
         {#if channel && !channel.name.startsWith('DM-')}
             <button
                 class="btn btn-ghost btn-sm btn-square"
@@ -424,10 +464,13 @@
                             })}
                         </span>
                     </div>
-                    <p
-                        class="text-base-content/90 mt-0.5 leading-relaxed break-words whitespace-pre-wrap">
-                        {@html formatMessageContent(msg.content)}
-                    </p>
+                    {#if msg.content}
+                        <p
+                            class="text-base-content/90 mt-0.5 leading-relaxed break-words whitespace-pre-wrap">
+                            {@html formatMessageContent(msg.content)}
+                        </p>
+                    {/if}
+                    <MessageAttachments {channelId} attachments={msg.attachments ?? []} />
                 </div>
                 <!-- Message Actions on Hover -->
                 <div
@@ -471,12 +514,41 @@
     <form
         class="relative border-2 border-base-300 rounded-xl bg-base-100 focus-within:border-primary transition-colors shadow-sm"
         onsubmit={sendMessage}>
+        {#if selectedFiles.length > 0}
+            <div class="flex flex-wrap gap-2 px-4 pt-3">
+                {#each selectedFiles as file, i}
+                    <div
+                        class="flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-full bg-base-200 text-xs">
+                        {#if file.type.startsWith('image/')}
+                            <ImageIcon class="w-3.5 h-3.5 text-base-content/60" />
+                        {:else}
+                            <FileText class="w-3.5 h-3.5 text-base-content/60" />
+                        {/if}
+                        <span class="max-w-[140px] truncate">{file.name}</span>
+                        <span class="text-base-content/40">{formatFileSize(file.size)}</span>
+                        <button
+                            type="button"
+                            class="btn btn-ghost btn-xs btn-circle"
+                            onclick={() => removeSelectedFile(i)}
+                            aria-label="Remove attachment">
+                            <X class="w-3 h-3" />
+                        </button>
+                    </div>
+                {/each}
+            </div>
+        {/if}
+        <input
+            bind:this={fileInputRef}
+            type="file"
+            multiple
+            class="hidden"
+            onchange={handleFilePick} />
         <textarea
             bind:this={textareaRef}
             bind:value={newMessage}
             oninput={handleTextareaInput}
             onblur={() => setTimeout(() => (showMentions = false), 200)}
-            class="w-full bg-transparent p-4 pr-16 outline-none resize-none min-h-[50px] max-h-[200px]"
+            class="w-full bg-transparent p-4 pr-24 outline-none resize-none min-h-[50px] max-h-[200px]"
             placeholder="Message #general"
             onkeydown={(e) => {
                 if (showMentions && filteredMentions.length > 0) {
@@ -511,10 +583,22 @@
 
         <div class="absolute right-3 bottom-3 flex items-center space-x-2">
             <button
+                type="button"
+                class="btn btn-ghost btn-sm btn-square"
+                onclick={() => fileInputRef?.click()}
+                title="Attach files"
+                aria-label="Attach files">
+                <Paperclip class="w-4 h-4" />
+            </button>
+            <button
                 type="submit"
                 class="btn btn-primary btn-sm btn-square"
-                disabled={!newMessage.trim()}>
-                <Send class="w-4 h-4" />
+                disabled={(!newMessage.trim() && selectedFiles.length === 0) || sendingMessage}>
+                {#if sendingMessage}
+                    <span class="loading loading-spinner loading-xs"></span>
+                {:else}
+                    <Send class="w-4 h-4" />
+                {/if}
             </button>
         </div>
     </form>
@@ -681,3 +765,6 @@
         </button>
     </div>
 {/if}
+
+<!-- Shared Media Panel -->
+<SharedMediaPanel {channelId} bind:open={showMediaPanel} />

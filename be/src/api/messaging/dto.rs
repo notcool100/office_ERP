@@ -39,6 +39,36 @@ pub struct MessageResponse {
     pub sender_name: Option<String>,
     pub content: String,
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Populated separately from `message_attachments` after the base
+    /// message row is fetched — never a real column in the queries below,
+    /// so `#[sqlx(skip)]` is required (the type has no Postgres decode
+    /// impl and is never meant to be read from a row).
+    #[sqlx(skip)]
+    pub attachments: Vec<AttachmentResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct AttachmentResponse {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub file_name: String,
+    pub content_type: String,
+    pub file_size: i64,
+    pub is_image: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct ChannelMediaItem {
+    pub id: Uuid,
+    pub message_id: Uuid,
+    pub file_name: String,
+    pub content_type: String,
+    pub file_size: i64,
+    pub is_image: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub sender_id: Option<Uuid>,
+    pub sender_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

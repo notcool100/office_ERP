@@ -1,7 +1,7 @@
 use crate::{
     api::messaging::{
         dto::{AddMemberRequest, CreateChannelRequest, SendMessageRequest, UpdateChannelRequest},
-        service,
+        service::{self, NewAttachment},
     },
     db::Db,
     models::user::User,
@@ -9,10 +9,14 @@ use crate::{
 };
 use axum::{
     Extension, Json,
-    extract::{Path, State},
-    http::StatusCode,
+    body::Body,
+    extract::{Multipart, Path, State},
+    http::{StatusCode, header},
+    response::{IntoResponse, Response},
 };
 use std::sync::Arc;
+use tokio::fs::File;
+use tokio_util::io::ReaderStream;
 use uuid::Uuid;
 
 pub async fn add_member_handler(
@@ -86,9 +90,45 @@ pub async fn send_message_handler(
     Extension(user): Extension<User>,
     State(hub): State<Arc<Hub>>,
     Path(channel_id): Path<Uuid>,
-    Json(payload): Json<SendMessageRequest>,
+    mut multipart: Multipart,
 ) -> Result<(StatusCode, Json<crate::api::messaging::dto::MessageResponse>), StatusCode> {
-    let message = service::send_message(&db, channel_id, user.id, payload)
+    let mut content = String::new();
+    let mut parent_id: Option<Uuid> = None;
+    let mut files: Vec<NewAttachment> = Vec::new();
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let field_name = field.name().unwrap_or("").to_string();
+        match field_name.as_str() {
+            "content" => {
+                content = field.text().await.unwrap_or_default();
+            }
+            "parentId" => {
+                let v = field.text().await.unwrap_or_default();
+                parent_id = Uuid::parse_str(&v).ok();
+            }
+            "files" => {
+                let file_name = field.file_name().unwrap_or("file").to_string();
+                let content_type = field
+                    .content_type()
+                    .unwrap_or("application/octet-stream")
+                    .to_string();
+                if let Ok(bytes) = field.bytes().await {
+                    if !bytes.is_empty() {
+                        files.push(NewAttachment {
+                            file_name,
+                            content_type,
+                            data: bytes.to_vec(),
+                        });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let payload = SendMessageRequest { content, parent_id };
+
+    let message = service::send_message(&db, channel_id, user.id, payload, files)
         .await
         .map_err(|e| {
             eprintln!("Error sending message: {}", e);
@@ -163,4 +203,50 @@ pub async fn remove_member_handler(
             StatusCode::BAD_REQUEST
         })?;
     Ok(StatusCode::OK)
+}
+
+pub async fn list_channel_media_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+    Path(channel_id): Path<Uuid>,
+) -> Result<(StatusCode, Json<Vec<crate::api::messaging::dto::ChannelMediaItem>>), StatusCode> {
+    let items = service::list_channel_media(&db, channel_id, user.id)
+        .await
+        .map_err(|e| {
+            eprintln!("Error listing channel media: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
+    Ok((StatusCode::OK, Json(items)))
+}
+
+pub async fn serve_attachment_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+    Path((channel_id, attachment_id)): Path<(Uuid, Uuid)>,
+) -> Response {
+    let file = match service::get_attachment_file(&db, channel_id, attachment_id, user.id).await {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Error fetching attachment: {}", e);
+            return StatusCode::NOT_FOUND.into_response();
+        }
+    };
+
+    let opened = match File::open(&file.file_path).await {
+        Ok(f) => f,
+        Err(_) => return (StatusCode::NOT_FOUND, "File not found on disk").into_response(),
+    };
+
+    let stream = ReaderStream::new(opened);
+    let body = Body::from_stream(stream);
+    let disposition = format!("inline; filename=\"{}\"", file.file_name);
+
+    (
+        [
+            (header::CONTENT_TYPE, file.content_type),
+            (header::CONTENT_DISPOSITION, disposition),
+        ],
+        body,
+    )
+        .into_response()
 }

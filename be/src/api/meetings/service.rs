@@ -96,6 +96,7 @@ pub async fn create_meeting(
                 content,
                 parent_id: None,
             },
+            Vec::new(),
         )
         .await?;
         Some(msg)

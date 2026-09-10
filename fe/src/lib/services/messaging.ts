@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, buildApiUrl } from './api';
 
 export interface Channel {
     id: string;
@@ -16,6 +16,16 @@ export interface ChannelMember {
     email: string;
 }
 
+export interface Attachment {
+    id: string;
+    message_id: string;
+    file_name: string;
+    content_type: string;
+    file_size: number;
+    is_image: boolean;
+    created_at: string;
+}
+
 export interface Message {
     id: string;
     channel_id: string;
@@ -23,6 +33,12 @@ export interface Message {
     sender_name?: string;
     content: string;
     created_at: string;
+    attachments: Attachment[];
+}
+
+export interface ChannelMediaItem extends Attachment {
+    sender_id?: string;
+    sender_name?: string;
 }
 
 export const messagingService = {
@@ -55,10 +71,45 @@ export const messagingService = {
         return res.json();
     },
 
-    async sendMessage(channelId: string, content: string): Promise<Message> {
-        const res = await api.post(`/messaging/channels/${channelId}/messages`, { content });
-        if (!res.ok) throw new Error('Failed to send message');
+    async sendMessage(
+        channelId: string,
+        content: string,
+        files: File[] = [],
+        parentId?: string,
+    ): Promise<Message> {
+        const formData = new FormData();
+        formData.set('content', content);
+        if (parentId) formData.set('parentId', parentId);
+        for (const file of files) {
+            formData.append('files', file);
+        }
+        const res = await api.postForm(`/messaging/channels/${channelId}/messages`, formData);
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || 'Failed to send message');
+        }
         return res.json();
+    },
+
+    async listChannelMedia(channelId: string): Promise<ChannelMediaItem[]> {
+        const res = await api.get(`/messaging/channels/${channelId}/media`);
+        if (!res.ok) throw new Error('Failed to load shared media');
+        return res.json();
+    },
+
+    attachmentUrl(channelId: string, attachmentId: string): string {
+        return buildApiUrl(`/messaging/channels/${channelId}/attachments/${attachmentId}`);
+    },
+
+    async fetchAttachmentBlob(channelId: string, attachmentId: string): Promise<string> {
+        const token =
+            typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const res = await fetch(this.attachmentUrl(channelId, attachmentId), {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error('Failed to load attachment');
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
     },
 
     async updateChannel(channelId: string, data: { name?: string; description?: string }): Promise<Channel> {

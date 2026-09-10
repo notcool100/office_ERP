@@ -1,10 +1,48 @@
 use crate::{
-    api::messaging::dto::{CreateChannelRequest, MessageResponse, SendMessageRequest},
+    api::messaging::dto::{
+        AttachmentResponse, ChannelMediaItem, CreateChannelRequest, MessageResponse,
+        SendMessageRequest,
+    },
     db::Db,
     models::messaging::Channel,
 };
 use anyhow::{Result, anyhow};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
+
+pub const MAX_ATTACHMENT_SIZE: usize = 25 * 1024 * 1024; // 25 MB per file
+pub const MAX_ATTACHMENTS_PER_MESSAGE: usize = 10;
+
+/// A file uploaded alongside a message, before it has been written to disk
+/// or recorded in `message_attachments`.
+pub struct NewAttachment {
+    pub file_name: String,
+    pub content_type: String,
+    pub data: Vec<u8>,
+}
+
+fn upload_dir() -> PathBuf {
+    let base =
+        std::env::var("MESSAGING_UPLOAD_DIR").unwrap_or_else(|_| "./uploads/messaging".into());
+    PathBuf::from(base)
+}
+
+async fn fetch_attachments(db: &Db, message_id: Uuid) -> Result<Vec<AttachmentResponse>> {
+    let attachments = sqlx::query_as::<_, AttachmentResponse>(
+        r#"
+        SELECT id, message_id, file_name, content_type, file_size,
+            (content_type LIKE 'image/%') as is_image, created_at
+        FROM message_attachments
+        WHERE message_id = $1
+        ORDER BY created_at
+        "#,
+    )
+    .bind(message_id)
+    .fetch_all(db)
+    .await?;
+    Ok(attachments)
+}
 
 pub async fn get_channel(db: &Db, channel_id: Uuid, user_id: Uuid) -> Result<Channel> {
     let channel = sqlx::query_as::<_, Channel>(
@@ -92,7 +130,7 @@ pub async fn create_channel(
 }
 
 pub async fn list_messages(db: &Db, channel_id: Uuid, limit: i64) -> Result<Vec<MessageResponse>> {
-    let messages = sqlx::query_as::<_, MessageResponse>(
+    let mut messages = sqlx::query_as::<_, MessageResponse>(
         r#"
         SELECT m.id, m.channel_id, m.sender_id,
             CONCAT(p.first_name, ' ', p.last_name) as sender_name,
@@ -110,6 +148,32 @@ pub async fn list_messages(db: &Db, channel_id: Uuid, limit: i64) -> Result<Vec<
     .fetch_all(db)
     .await?;
 
+    let ids: Vec<Uuid> = messages.iter().map(|m| m.id).collect();
+    if !ids.is_empty() {
+        let attachments = sqlx::query_as::<_, AttachmentResponse>(
+            r#"
+            SELECT id, message_id, file_name, content_type, file_size,
+                (content_type LIKE 'image/%') as is_image, created_at
+            FROM message_attachments
+            WHERE message_id = ANY($1)
+            ORDER BY created_at
+            "#,
+        )
+        .bind(&ids)
+        .fetch_all(db)
+        .await?;
+
+        let mut by_message: HashMap<Uuid, Vec<AttachmentResponse>> = HashMap::new();
+        for a in attachments {
+            by_message.entry(a.message_id).or_default().push(a);
+        }
+        for m in &mut messages {
+            if let Some(list) = by_message.remove(&m.id) {
+                m.attachments = list;
+            }
+        }
+    }
+
     Ok(messages)
 }
 
@@ -118,7 +182,22 @@ pub async fn send_message(
     channel_id: Uuid,
     sender_id: Uuid,
     req: SendMessageRequest,
+    files: Vec<NewAttachment>,
 ) -> Result<MessageResponse> {
+    if files.len() > MAX_ATTACHMENTS_PER_MESSAGE {
+        return Err(anyhow!(
+            "Too many attachments (max {})",
+            MAX_ATTACHMENTS_PER_MESSAGE
+        ));
+    }
+    for f in &files {
+        if f.data.len() > MAX_ATTACHMENT_SIZE {
+            return Err(anyhow!("Attachment too large (max 25 MB)"));
+        }
+    }
+    if req.content.trim().is_empty() && files.is_empty() {
+        return Err(anyhow!("Message must have content or an attachment"));
+    }
     // Verify user is a member of the channel, auto-joining them if the
     // channel is public (list_channels/get_channel already expose public
     // channels to every user, so sending should not require a prior
@@ -154,7 +233,7 @@ pub async fn send_message(
         .await?;
     }
 
-    let message = sqlx::query_as::<_, MessageResponse>(
+    let mut message = sqlx::query_as::<_, MessageResponse>(
         r#"
         WITH inserted AS (
             INSERT INTO messages (id, channel_id, sender_id, content, parent_id)
@@ -177,7 +256,134 @@ pub async fn send_message(
     .fetch_one(db)
     .await?;
 
+    if !files.is_empty() {
+        let dir = upload_dir().join(channel_id.to_string());
+        tokio::fs::create_dir_all(&dir).await?;
+
+        for f in files {
+            let ext = Path::new(&f.file_name)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("bin")
+                .to_lowercase();
+            let stored_name = format!("{}.{}", Uuid::new_v4(), ext);
+            let abs_path = dir.join(&stored_name);
+            tokio::fs::write(&abs_path, &f.data).await?;
+
+            sqlx::query(
+                r#"
+                INSERT INTO message_attachments
+                    (id, message_id, file_name, content_type, file_size, file_path)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                "#,
+            )
+            .bind(Uuid::new_v4())
+            .bind(message.id)
+            .bind(&f.file_name)
+            .bind(&f.content_type)
+            .bind(f.data.len() as i64)
+            .bind(abs_path.to_string_lossy().into_owned())
+            .execute(db)
+            .await?;
+        }
+
+        message.attachments = fetch_attachments(db, message.id).await?;
+    }
+
     Ok(message)
+}
+
+/// All shared attachments in a channel, newest first — powers the "shared
+/// media" panel in the chat header (images/files a la Messenger).
+pub async fn list_channel_media(
+    db: &Db,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<ChannelMediaItem>> {
+    let can_access = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM channels c
+            LEFT JOIN channel_members cm ON c.id = cm.channel_id
+            WHERE c.id = $1 AND (c.is_private = false OR cm.user_id = $2)
+        )
+        "#,
+    )
+    .bind(channel_id)
+    .bind(user_id)
+    .fetch_one(db)
+    .await?;
+
+    if !can_access {
+        return Err(anyhow!("User does not have access to this channel"));
+    }
+
+    let items = sqlx::query_as::<_, ChannelMediaItem>(
+        r#"
+        SELECT a.id, a.message_id, a.file_name, a.content_type, a.file_size,
+            (a.content_type LIKE 'image/%') as is_image, a.created_at,
+            m.sender_id, CONCAT(p.first_name, ' ', p.last_name) as sender_name
+        FROM message_attachments a
+        JOIN messages m ON m.id = a.message_id
+        LEFT JOIN users u ON m.sender_id = u.id
+        LEFT JOIN persons p ON u.person_id = p.id
+        WHERE m.channel_id = $1
+        ORDER BY a.created_at DESC
+        "#,
+    )
+    .bind(channel_id)
+    .fetch_all(db)
+    .await?;
+
+    Ok(items)
+}
+
+#[derive(sqlx::FromRow)]
+pub struct AttachmentFile {
+    pub file_name: String,
+    pub content_type: String,
+    pub file_path: String,
+}
+
+pub async fn get_attachment_file(
+    db: &Db,
+    channel_id: Uuid,
+    attachment_id: Uuid,
+    user_id: Uuid,
+) -> Result<AttachmentFile> {
+    let can_access = sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS(
+            SELECT 1 FROM channels c
+            LEFT JOIN channel_members cm ON c.id = cm.channel_id
+            WHERE c.id = $1 AND (c.is_private = false OR cm.user_id = $2)
+        )
+        "#,
+    )
+    .bind(channel_id)
+    .bind(user_id)
+    .fetch_one(db)
+    .await?;
+
+    if !can_access {
+        return Err(anyhow!("User does not have access to this channel"));
+    }
+
+    let file = sqlx::query_as::<_, AttachmentFile>(
+        r#"
+        SELECT a.file_name, a.content_type, a.file_path
+        FROM message_attachments a
+        JOIN messages m ON m.id = a.message_id
+        WHERE a.id = $1 AND m.channel_id = $2
+        "#,
+    )
+    .bind(attachment_id)
+    .bind(channel_id)
+    .fetch_optional(db)
+    .await?
+    .ok_or_else(|| anyhow!("Attachment not found"))?;
+
+    Ok(file)
 }
 
 pub async fn add_member(
