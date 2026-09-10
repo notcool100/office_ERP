@@ -173,18 +173,56 @@ class ApiClient {
   static ApiException toApiException(Object error) {
     if (error is ApiException) return error;
     if (error is DioException) {
-      final data = error.response?.data;
-      String message = 'Network error. Please check your connection.';
-      if (data is Map) {
-        message = (data['message'] ?? data['error'] ?? message).toString();
-      } else if (error.type == DioExceptionType.connectionTimeout ||
-          error.type == DioExceptionType.receiveTimeout) {
-        message = 'The server took too long to respond.';
-      } else if (error.type == DioExceptionType.connectionError) {
-        message = 'Could not reach the server. Please check your connection.';
+      final response = error.response;
+
+      // A response came back at all — this is not a connectivity problem,
+      // whatever the status code says. Prefer the server's own message;
+      // fall back to a message derived from the status rather than the
+      // generic "check your connection" text, which is actively
+      // misleading for e.g. a bodyless 401 on a bad password.
+      if (response != null) {
+        final data = response.data;
+        String? serverMessage;
+        if (data is Map) {
+          serverMessage = (data['message'] ?? data['error'])?.toString();
+        }
+        final message = (serverMessage != null && serverMessage.isNotEmpty)
+            ? serverMessage
+            : _defaultMessageForStatus(response.statusCode);
+        return ApiException(message, statusCode: response.statusCode);
       }
-      return ApiException(message, statusCode: error.response?.statusCode);
+
+      // No response at all: this is the genuine connectivity case.
+      String message = 'Could not reach the server. Please check your connection.';
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        message = 'The server took too long to respond.';
+      }
+      return ApiException(message);
     }
     return ApiException(error.toString());
+  }
+
+  static String _defaultMessageForStatus(int? status) {
+    switch (status) {
+      case 400:
+        return 'That request was not valid.';
+      case 401:
+        return 'Invalid credentials, or your session has expired.';
+      case 403:
+        return 'You do not have permission to do that.';
+      case 404:
+        return 'That could not be found.';
+      case 409:
+        return 'That conflicts with something that already exists.';
+      case 422:
+        return 'That request could not be processed.';
+      default:
+        if (status != null && status >= 500) {
+          return 'The server ran into a problem. Please try again.';
+        }
+        return 'Something went wrong. Please try again.';
+    }
   }
 }
