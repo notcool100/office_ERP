@@ -4,6 +4,7 @@ pub mod errors;
 pub mod middleware;
 pub mod middlewares;
 pub mod models;
+pub mod push;
 pub mod routes;
 pub mod scheduler;
 pub mod ws;
