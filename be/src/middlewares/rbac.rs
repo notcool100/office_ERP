@@ -124,6 +124,21 @@ fn authorize(
     })
 }
 
+/// Read-permission check for callers that need the answer as a value
+/// rather than as a 403 — the mobile bootstrap payload tells the app which
+/// document tabs to render, and the document browser gates itself on the
+/// same grant the admin router would have enforced.
+pub async fn user_can_read(db: &Db, user: &User, nav_path: &str) -> bool {
+    if user.is_admin {
+        return true;
+    }
+
+    matches!(
+        fetch_permissions(db, user.id, nav_path).await,
+        Ok(Some(perms)) if perms.allows(PermissionAction::Read)
+    )
+}
+
 async fn fetch_permissions(
     db: &Db,
     user_id: Uuid,

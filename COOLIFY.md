@@ -12,6 +12,7 @@ Required backend environment variables:
 - `DATABASE_URL` = PostgreSQL connection string
 - `GITHUB_TOKEN_ENC_KEY` = 32-byte base64 key used to encrypt the GitHub connector's stored token (generate with `openssl rand -base64 32`)
 - optional: `MAILCOW_API_URL`, `MAILCOW_API_KEY`, `MAILCOW_MAIL_DOMAIN` = Mailcow REST API mailbox provisioning
+- optional: `FCM_SERVICE_ACCOUNT_JSON` = the full contents of a Firebase service-account key (Firebase console → Project settings → Service accounts → Generate new private key), minified to one line, pasted directly as the env var's value — enables push notifications to the mobile app. `FCM_PROJECT_ID` is read from the key itself and doesn't need to be set separately. Without this, the backend runs normally and the mobile app's notification list still works over REST/WebSocket; phones just won't get woken up while backgrounded. See `mobile/README.md` for the mobile-side half of this setup.
 
 Example PostgreSQL URL:
 ```text
@@ -30,6 +31,7 @@ Create a new Coolify app using the `be` folder as the build context.
   - `GITHUB_TOKEN_ENC_KEY` (required to use the GitHub connector — Settings > Connectors)
   - `MAILCOW_API_URL`, `MAILCOW_API_KEY`, `MAILCOW_MAIL_DOMAIN` (optional, for mailbox auto-provisioning)
   - `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_PORT` (if mail is enabled)
+  - `FCM_SERVICE_ACCOUNT_JSON` (optional, for mobile push notifications — see above)
 
 The backend listens on `0.0.0.0:3117` by default.
 

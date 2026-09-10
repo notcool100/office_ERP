@@ -70,12 +70,28 @@ pub async fn create_meeting_handler(
                 message_type: "meeting_created".to_string(),
                 payload: serde_json::to_value(&meeting).unwrap(),
             };
-            for member_id in member_ids {
-                if member_id != user.id {
-                    hub.send_to_user(member_id, ws_msg.clone());
-                    hub.send_to_user(member_id, meeting_msg.clone());
+            for member_id in &member_ids {
+                if *member_id != user.id {
+                    hub.send_to_user(*member_id, ws_msg.clone());
+                    hub.send_to_user(*member_id, meeting_msg.clone());
                 }
             }
+
+            let title = meeting.title.clone();
+            crate::api::notifications::service::notify_many(
+                &db,
+                Some(&hub),
+                &member_ids,
+                Some(user.id),
+                || {
+                    crate::api::notifications::dto::NewNotification::new(
+                        crate::api::notifications::dto::kind::MEETING,
+                        format!("Meeting started: {}", title),
+                    )
+                    .entity("meeting", meeting.id)
+                },
+            )
+            .await;
         }
     }
 

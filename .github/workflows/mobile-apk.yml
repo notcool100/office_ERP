@@ -1,0 +1,149 @@
+name: Mobile APK
+
+# Builds the Flutter app in mobile/ into an installable Android APK.
+#
+# Runs automatically on every push to main that touches mobile/, and on
+# version tags (mobile-v*) where it also attaches the APK to a GitHub
+# Release. Can always be run by hand from the Actions tab, with the option
+# to override the API base URL or build a debug APK instead of release.
+#
+# Requires one repo secret: GOOGLE_SERVICES_JSON — see mobile/README.md
+# ("Push notifications") for what it is. This workflow refuses to build
+# without it rather than silently shipping an APK with push broken.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-apk.yml'
+    tags:
+      - 'mobile-v*'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'APK build type'
+        type: choice
+        options: [release, debug]
+        default: release
+      api_base_url:
+        description: 'Override API_BASE_URL baked into the build (leave blank for the production default)'
+        required: false
+        type: string
+
+defaults:
+  run:
+    working-directory: mobile
+
+# Cancel a superseded run on the same branch — no point finishing a build
+# for a commit that's already been replaced by a newer push.
+concurrency:
+  group: mobile-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only used to attach the APK on a tag push
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.4'
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('mobile/android/**/*.gradle*', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('mobile/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "::error::Repo secret GOOGLE_SERVICES_JSON is not set."
+            echo "::error::Generate it with: base64 -w0 android/app/google-services.json"
+            echo "::error::then add it under Settings > Secrets and variables > Actions > New repository secret."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > android/app/google-services.json
+          # Sanity check it's actually JSON and not a mis-encoded secret —
+          # a bad build should fail here with a clear reason, not two
+          # steps later inside an opaque Gradle stack trace.
+          python3 -c "import json; json.load(open('android/app/google-services.json'))"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build APK
+        env:
+          BUILD_TYPE: ${{ github.event.inputs.build_type || 'release' }}
+          API_BASE_URL_OVERRIDE: ${{ github.event.inputs.api_base_url }}
+        run: |
+          args=(--build-number="$GITHUB_RUN_NUMBER")
+          if [ -n "$API_BASE_URL_OVERRIDE" ]; then
+            args+=(--dart-define=API_BASE_URL="$API_BASE_URL_OVERRIDE")
+          fi
+          flutter build apk "--$BUILD_TYPE" "${args[@]}"
+
+      - name: Locate and rename APK
+        id: apk
+        env:
+          BUILD_TYPE: ${{ github.event.inputs.build_type || 'release' }}
+        run: |
+          src="build/app/outputs/flutter-apk/app-$BUILD_TYPE.apk"
+          if [ ! -f "$src" ]; then
+            echo "::error::Expected APK not found at $src"
+            exit 1
+          fi
+          name="adya-mobile-$BUILD_TYPE-${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}.apk"
+          cp "$src" "build/app/outputs/flutter-apk/$name"
+          echo "path=mobile/build/app/outputs/flutter-apk/$name" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.name }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach APK to release
+        if: startsWith(github.ref, 'refs/tags/mobile-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.apk.outputs.path }}
+          generate_release_notes: true

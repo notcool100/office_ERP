@@ -71,6 +71,7 @@ pub async fn create_channel_handler(
 
 pub async fn list_messages_handler(
     Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
     Path(channel_id): Path<Uuid>,
 ) -> Result<
     (
@@ -79,10 +80,25 @@ pub async fn list_messages_handler(
     ),
     StatusCode,
 > {
-    let messages = service::list_messages(&db, channel_id, 50)
+    let messages = service::list_messages(&db, channel_id, 50, user.id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::OK, Json(messages)))
+}
+
+pub async fn toggle_reaction_handler(
+    Extension(db): Extension<Db>,
+    Extension(user): Extension<User>,
+    Path((_channel_id, message_id)): Path<(Uuid, Uuid)>,
+    Json(payload): Json<crate::api::messaging::dto::ToggleReactionRequest>,
+) -> Result<(StatusCode, Json<Vec<crate::api::messaging::dto::ReactionSummary>>), StatusCode> {
+    let reactions = service::toggle_reaction(&db, message_id, user.id, &payload.emoji)
+        .await
+        .map_err(|e| {
+            eprintln!("Error toggling reaction: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
+    Ok((StatusCode::OK, Json(reactions)))
 }
 
 pub async fn send_message_handler(
@@ -144,13 +160,40 @@ pub async fn send_message_handler(
 
     // Also broadcast as a notification to all members' personal hubs
     if let Ok(member_ids) = service::get_channel_member_ids(&db, channel_id).await {
-        for member_id in member_ids {
+        for member_id in &member_ids {
             // Optional: Don't send notification to the sender?
             // Usually fine to send, frontend can filter or show "message sent".
-            if member_id != user.id {
-                hub.send_to_user(member_id, ws_msg.clone());
+            if *member_id != user.id {
+                hub.send_to_user(*member_id, ws_msg.clone());
             }
         }
+
+        // Persist to the recipient's inbox and fan out to their devices —
+        // the raw hub broadcast above only reaches an open socket, which a
+        // backgrounded phone doesn't have.
+        let sender_name = message.sender_name.clone().unwrap_or_else(|| "Someone".to_string());
+        let preview = if message.content.trim().is_empty() {
+            "Sent an attachment".to_string()
+        } else if message.content.chars().count() > 120 {
+            format!("{}…", message.content.chars().take(120).collect::<String>())
+        } else {
+            message.content.clone()
+        };
+        crate::api::notifications::service::notify_many(
+            &db,
+            Some(&hub),
+            &member_ids,
+            Some(user.id),
+            || {
+                crate::api::notifications::dto::NewNotification::new(
+                    crate::api::notifications::dto::kind::MESSAGE,
+                    sender_name.clone(),
+                )
+                .body(preview.clone())
+                .entity("channel", channel_id)
+            },
+        )
+        .await;
     }
 
     Ok((StatusCode::CREATED, Json(message)))

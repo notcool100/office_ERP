@@ -1,0 +1,88 @@
+name: adya_mobile
+description: "Adya Technologies companion app — attendance, calendar, messaging, leave, meetings and documents."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State management
+  flutter_riverpod: ^2.6.1
+
+  # Networking
+  dio: ^5.7.0
+  connectivity_plus: ^6.1.0
+
+  # Local storage / secure token storage
+  # 10.x, not 9.x — 9.x's vendored flutter_secure_storage_linux ships a
+  # copy of nlohmann/json using a C++ literal-operator syntax that newer
+  # Clang (22+, what Arch ships) treats as a hard error under -Werror.
+  # 10.x pulls in flutter_secure_storage_linux ^3.0.1, which fixed it.
+  flutter_secure_storage: ^10.3.1
+  shared_preferences: ^2.3.3
+
+  # Navigation
+  go_router: ^14.6.2
+
+  # Push notifications
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
+  flutter_local_notifications: ^18.0.1
+
+  # Biometrics
+  local_auth: ^2.3.0
+
+  # Location + geofencing
+  geolocator: ^13.0.2
+
+  # Camera for check-in selfie
+  camera: ^0.11.0+2
+  image: ^4.3.0
+
+  # WebSocket for live chat / notifications
+  web_socket_channel: ^3.0.1
+
+  # UI
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  flutter_svg: ^2.0.16
+  intl: ^0.20.1
+  table_calendar: ^3.1.3
+  flutter_html: ^3.0.0
+  file_picker: ^8.1.4
+  open_filex: ^4.5.0
+  path_provider: ^2.1.5
+  permission_handler: ^11.3.1
+  url_launcher: ^6.3.1
+  device_info_plus: ^11.1.1
+  package_info_plus: ^8.1.1
+
+  # Utility
+  equatable: ^2.0.7
+  logger: ^2.5.0
+  collection: ^1.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# flutter_html 3.0.0 reaches into html's internal (non-exported)
+# query_selector.dart for a top-level `matches()` function that html
+# removed in 0.15.7 — pub's normal resolver has no way to know that, since
+# flutter_html's own constraint (^0.15.5) is technically still satisfied.
+# Pin to the last version that still has it. Safe to drop once flutter_html
+# ships a fix (tracked upstream) or this app moves off flutter_html.
+dependency_overrides:
+  html: 0.15.6
+
+flutter:
+  uses-material-design: true

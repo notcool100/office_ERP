@@ -2,7 +2,7 @@ use crate::api::messaging::handler::{
     add_member_handler, create_channel_handler, get_channel_handler, list_channel_media_handler,
     list_channel_members_handler, list_channels_handler, list_messages_handler,
     remove_member_handler, send_message_handler, serve_attachment_handler,
-    update_channel_handler,
+    toggle_reaction_handler, update_channel_handler,
 };
 use crate::ws::hub::Hub;
 use axum::{Router, routing::delete, routing::get};
@@ -29,6 +29,10 @@ pub fn messaging_routes(hub: Arc<Hub>) -> Router {
         .route(
             "/channels/{channel_id}/messages",
             get(list_messages_handler).post(send_message_handler),
+        )
+        .route(
+            "/channels/{channel_id}/messages/{message_id}/reactions",
+            axum::routing::post(toggle_reaction_handler),
         )
         .route("/channels/{channel_id}/media", get(list_channel_media_handler))
         .route(

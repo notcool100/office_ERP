@@ -1,7 +1,7 @@
 use crate::{
     api::messaging::dto::{
         AttachmentResponse, ChannelMediaItem, CreateChannelRequest, MessageResponse,
-        SendMessageRequest,
+        ReactionSummary, SendMessageRequest,
     },
     db::Db,
     models::messaging::Channel,
@@ -26,6 +26,84 @@ fn upload_dir() -> PathBuf {
     let base =
         std::env::var("MESSAGING_UPLOAD_DIR").unwrap_or_else(|_| "./uploads/messaging".into());
     PathBuf::from(base)
+}
+
+/// Grouped reaction counts for a batch of messages, from the viewer's
+/// point of view. Mirrors `fetch_attachments`'s batch-then-distribute
+/// shape so `list_messages` stays two queries regardless of page size.
+async fn fetch_reactions_batch(
+    db: &Db,
+    message_ids: &[Uuid],
+    viewer_id: Uuid,
+) -> Result<HashMap<Uuid, Vec<ReactionSummary>>> {
+    if message_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let rows = sqlx::query_as::<_, (Uuid, String, i64, bool)>(
+        r#"
+        SELECT message_id, emoji, COUNT(*) as count,
+               BOOL_OR(user_id = $2) as reacted_by_me
+        FROM message_reactions
+        WHERE message_id = ANY($1)
+        GROUP BY message_id, emoji
+        ORDER BY MIN(created_at)
+        "#,
+    )
+    .bind(message_ids)
+    .bind(viewer_id)
+    .fetch_all(db)
+    .await?;
+
+    let mut by_message: HashMap<Uuid, Vec<ReactionSummary>> = HashMap::new();
+    for (message_id, emoji, count, reacted_by_me) in rows {
+        by_message.entry(message_id).or_default().push(ReactionSummary {
+            emoji,
+            count,
+            reacted_by_me,
+        });
+    }
+    Ok(by_message)
+}
+
+/// Adds the caller's reaction if they haven't used this emoji on this
+/// message yet, removes it if they have — the same toggle gesture as
+/// tapping an emoji a second time in any chat app — then returns the
+/// message's updated reaction summary.
+pub async fn toggle_reaction(
+    db: &Db,
+    message_id: Uuid,
+    user_id: Uuid,
+    emoji: &str,
+) -> Result<Vec<ReactionSummary>> {
+    if emoji.trim().is_empty() || emoji.chars().count() > 8 {
+        return Err(anyhow!("Invalid reaction"));
+    }
+
+    let removed = sqlx::query(
+        "DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3",
+    )
+    .bind(message_id)
+    .bind(user_id)
+    .bind(emoji)
+    .execute(db)
+    .await?
+    .rows_affected();
+
+    if removed == 0 {
+        sqlx::query(
+            "INSERT INTO message_reactions (message_id, user_id, emoji) VALUES ($1, $2, $3) \
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(message_id)
+        .bind(user_id)
+        .bind(emoji)
+        .execute(db)
+        .await?;
+    }
+
+    let mut summary = fetch_reactions_batch(db, &[message_id], user_id).await?;
+    Ok(summary.remove(&message_id).unwrap_or_default())
 }
 
 async fn fetch_attachments(db: &Db, message_id: Uuid) -> Result<Vec<AttachmentResponse>> {
@@ -129,7 +207,12 @@ pub async fn create_channel(
     Ok(channel)
 }
 
-pub async fn list_messages(db: &Db, channel_id: Uuid, limit: i64) -> Result<Vec<MessageResponse>> {
+pub async fn list_messages(
+    db: &Db,
+    channel_id: Uuid,
+    limit: i64,
+    viewer_id: Uuid,
+) -> Result<Vec<MessageResponse>> {
     let mut messages = sqlx::query_as::<_, MessageResponse>(
         r#"
         SELECT m.id, m.channel_id, m.sender_id,
@@ -170,6 +253,13 @@ pub async fn list_messages(db: &Db, channel_id: Uuid, limit: i64) -> Result<Vec<
         for m in &mut messages {
             if let Some(list) = by_message.remove(&m.id) {
                 m.attachments = list;
+            }
+        }
+
+        let mut reactions_by_message = fetch_reactions_batch(db, &ids, viewer_id).await?;
+        for m in &mut messages {
+            if let Some(list) = reactions_by_message.remove(&m.id) {
+                m.reactions = list;
             }
         }
     }

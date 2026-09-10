@@ -45,6 +45,25 @@ pub struct MessageResponse {
     /// impl and is never meant to be read from a row).
     #[sqlx(skip)]
     pub attachments: Vec<AttachmentResponse>,
+    /// Same story as `attachments`: grouped from `message_reactions` after
+    /// the base row is fetched, viewer-dependent (`reacted_by_me`), so it
+    /// can never be part of the SELECT itself.
+    #[sqlx(skip)]
+    pub reactions: Vec<ReactionSummary>,
+}
+
+/// One emoji's aggregate on a message: how many people reacted with it,
+/// and whether the requesting user is one of them.
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct ReactionSummary {
+    pub emoji: String,
+    pub count: i64,
+    pub reacted_by_me: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ToggleReactionRequest {
+    pub emoji: String,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]

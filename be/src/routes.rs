@@ -16,9 +16,11 @@ use crate::api::{
     integrations::github::routes::github_connection_routes, intern::routes::intern_routes,
     leave::routes::leave_routes, meetings::routes::meetings_routes,
     messaging::routes::messaging_routes,
+    mobile::routes::mobile_routes,
     navigation::routes::navigation_routes,
     payroll::routes::{payroll_my_routes, payroll_routes},
     notification_settings::routes::notification_settings_routes,
+    notifications::routes::notifications_routes,
     permissions::routes::permissions_routes, person::routes::person_routes,
     position::routes::position_routes, project::routes::project_routes,
     user::routes::user_routes,
@@ -118,6 +120,9 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
         .nest("/messaging", messaging_routes(hub.clone()))
         .nest("/meetings", meetings_routes(hub.clone()))
         .nest("/notification-settings", notification_settings_routes())
+        .nest("/notifications", notifications_routes())
+        .nest("/mobile", mobile_routes())
+        .layer(axum::Extension(hub.clone()))
         .route_layer(axum::middleware::from_fn(
             crate::middlewares::auth::authenticate,
         ));
