@@ -19,8 +19,8 @@ class DocumentsRepository {
         '/mobile/documents',
         queryParameters: {
           'category': category,
-          if (ownerId != null) 'ownerId': ownerId,
-          if (folderId != null) 'folderId': folderId,
+          'ownerId': ?ownerId,
+          'folderId': ?folderId,
         },
       );
       return FolderListing.fromJson(response.data!);
@@ -42,7 +42,7 @@ class DocumentsRepository {
         '/mobile/documents/$documentId/file',
         queryParameters: {
           'category': category,
-          if (ownerId != null) 'ownerId': ownerId,
+          'ownerId': ?ownerId,
         },
         options: Options(responseType: ResponseType.bytes),
       );

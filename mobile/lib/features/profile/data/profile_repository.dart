@@ -20,7 +20,7 @@ class ProfileRepository {
 
   Future<void> updateProfile({String? email, String? phone}) async {
     try {
-      await _dio.put('/mobile/profile', data: {if (email != null) 'email': email, if (phone != null) 'phone': phone});
+      await _dio.put('/mobile/profile', data: {'email': ?email, 'phone': ?phone});
     } catch (e) {
       throw ApiClient.toApiException(e);
     }

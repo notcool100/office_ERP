@@ -91,7 +91,7 @@ class MessagingRepository {
     try {
       final formData = FormData.fromMap({
         'content': content,
-        if (parentId != null) 'parentId': parentId,
+        'parentId': ?parentId,
         'files': [
           for (final f in files)
             MultipartFile.fromBytes(f.bytes, filename: f.fileName, contentType: null),
