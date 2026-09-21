@@ -69,3 +69,16 @@ pub struct ListEmployeesResponse {
 pub struct UpdateFaceDescriptorRequest {
     pub descriptor: String,
 }
+
+/// Minimal, non-privileged employee record for the attendance kiosk: just
+/// enough to label a recognized face. No email/phone/salary/manager, unlike
+/// `EmployeeResponse`, since any authenticated employee can read this.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KioskEmployeeSummary {
+    pub id: Uuid,
+    pub employee_id: String,
+    pub first_name: String,
+    pub last_name: String,
+    pub department: Option<String>,
+}

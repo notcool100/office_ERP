@@ -4,7 +4,8 @@ import type {
     CreateEmployeeRequest,
     UpdateEmployeeRequest,
     ListEmployeesResponse,
-    ListEmployeesQuery
+    ListEmployeesQuery,
+    KioskEmployeeSummary
 } from '$lib/types/employee';
 
 export async function createEmployee(data: CreateEmployeeRequest): Promise<Employee> {
@@ -86,6 +87,29 @@ export async function updateFaceDescriptor(id: string, descriptor: Float32Array)
 
 export async function getAllFaceDescriptors(): Promise<[string, string][]> {
     const res = await api.get('/employees/config/descriptors');
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch face descriptors');
+    }
+
+    return await res.json();
+}
+
+// Kiosk-scoped variants: authenticated-only, no HR-admin permission
+// required, so any logged-in employee can use the attendance kiosk.
+
+export async function getKioskRoster(): Promise<KioskEmployeeSummary[]> {
+    const res = await api.get('/employees/kiosk/roster');
+
+    if (!res.ok) {
+        throw new Error('Failed to fetch kiosk employee roster');
+    }
+
+    return await res.json();
+}
+
+export async function getKioskFaceDescriptors(): Promise<[string, string][]> {
+    const res = await api.get('/employees/kiosk/descriptors');
 
     if (!res.ok) {
         throw new Error('Failed to fetch face descriptors');

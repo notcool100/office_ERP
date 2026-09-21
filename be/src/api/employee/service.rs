@@ -1,7 +1,7 @@
 use crate::{
     api::employee::dto::{
-        CreateEmployeeRequest, EmployeeResponse, ListEmployeesQuery, ListEmployeesResponse,
-        UpdateEmployeeRequest,
+        CreateEmployeeRequest, EmployeeResponse, KioskEmployeeSummary, ListEmployeesQuery,
+        ListEmployeesResponse, UpdateEmployeeRequest,
     },
     db::Db,
     models::employee::EmployeeWithPerson,
@@ -298,6 +298,35 @@ pub async fn update_face_descriptor(db: &Db, id: Uuid, descriptor: String) -> Re
     }
 
     Ok(())
+}
+
+/// Active-employee roster for the attendance kiosk. Deliberately excludes
+/// email/phone/salary/manager/status — the kiosk only needs to label a
+/// recognized face, and this is reachable by any authenticated employee.
+pub async fn list_active_employees_for_kiosk(db: &Db) -> Result<Vec<KioskEmployeeSummary>> {
+    let rows = sqlx::query_as::<_, (Uuid, String, String, String, Option<Uuid>)>(
+        r#"
+        SELECT e.id, e.employee_id, p.first_name, p.last_name, e.department_id
+        FROM employees e
+        JOIN persons p ON p.id = e.person_id
+        WHERE e.status = 'active'
+        "#,
+    )
+    .fetch_all(db)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(
+            |(id, employee_id, first_name, last_name, department_id)| KioskEmployeeSummary {
+                id,
+                employee_id,
+                first_name,
+                last_name,
+                department: department_id.map(|d| d.to_string()),
+            },
+        )
+        .collect())
 }
 
 pub async fn get_all_face_descriptors(db: &Db) -> Result<Vec<(String, String)>> {

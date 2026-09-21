@@ -49,3 +49,15 @@ export interface ListEmployeesQuery {
     department?: string;
     status?: string;
 }
+
+// Minimal, non-privileged record served by the kiosk-scoped endpoints -
+// just enough to label a recognized face. Reachable by any authenticated
+// employee, unlike `Employee`/`ListEmployeesResponse` which require HR-admin
+// permissions.
+export interface KioskEmployeeSummary {
+    id: string;
+    employeeId: string;
+    firstName: string;
+    lastName: string;
+    department?: string;
+}

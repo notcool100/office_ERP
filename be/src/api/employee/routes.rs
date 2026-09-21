@@ -30,5 +30,21 @@ pub fn employee_routes() -> Router {
     let me_route = Router::new()
         .route("/me", get(handlers::get_my_employee_handler));
 
-    crud_routes.merge(face_routes).merge(me_route)
+    // Authenticated-only (no `/admin/hr/*` RBAC grant required): the
+    // attendance kiosk is meant to be usable by any logged-in employee to
+    // clock in/out via face recognition, so it must not depend on an
+    // HR-admin permission the way `/employees` and `/config/descriptors` do.
+    // Both handlers only ever return active employees and carry no PII
+    // (no email/phone/salary) beyond what's needed to label a matched face.
+    let kiosk_routes = Router::new()
+        .route("/kiosk/roster", get(handlers::list_kiosk_employees_handler))
+        .route(
+            "/kiosk/descriptors",
+            get(handlers::list_face_descriptors_handler),
+        );
+
+    crud_routes
+        .merge(face_routes)
+        .merge(me_route)
+        .merge(kiosk_routes)
 }

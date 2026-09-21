@@ -110,3 +110,14 @@ pub async fn list_face_descriptors_handler(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::OK, Json(json!(descriptors))))
 }
+
+/// Authenticated-only (no `/admin/hr/*` permission) roster for the
+/// attendance kiosk, which any logged-in employee may use to clock in/out.
+pub async fn list_kiosk_employees_handler(
+    Extension(db): Extension<Db>,
+) -> Result<(StatusCode, Json<serde_json::Value>), StatusCode> {
+    let employees = service::list_active_employees_for_kiosk(&db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((StatusCode::OK, Json(json!(employees))))
+}

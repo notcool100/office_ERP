@@ -1,10 +1,10 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import { FaceRecognitionService } from '$lib/utils/face_recognition';
-    import { getAllFaceDescriptors, listEmployees } from '$lib/services/employee';
+    import { getKioskFaceDescriptors, getKioskRoster } from '$lib/services/employee';
     import { checkIn, checkOut } from '$lib/services/attendance';
     import { companySettingsService } from '$lib/services/company-settings';
-    import type { Employee } from '$lib/types/employee';
+    import type { KioskEmployeeSummary } from '$lib/types/employee';
     import {
         Camera,
         MapPin,
@@ -28,7 +28,7 @@
 
     let faceService = FaceRecognitionService.getInstance();
     let faceMatcher: faceapi.FaceMatcher | null = null;
-    let employees: Employee[] = [];
+    let employees: KioskEmployeeSummary[] = [];
 
     let detectInterval: ReturnType<typeof setInterval> | undefined;
     let locationInterval: ReturnType<typeof setInterval> | undefined;
@@ -39,7 +39,7 @@
     let systemError = '';
 
     // Live recognition state
-    let recognized: Employee | null = null;
+    let recognized: KioskEmployeeSummary | null = null;
     let lastMatchAt = 0;
     let scanHint = 'Loading camera…';
 
@@ -105,10 +105,9 @@
     });
 
     async function loadEmployeeData() {
-        const empRes = await listEmployees({ pageSize: 1000, status: 'active' });
-        employees = empRes.employees;
+        employees = await getKioskRoster();
 
-        const rawDescriptors = await getAllFaceDescriptors();
+        const rawDescriptors = await getKioskFaceDescriptors();
         if (rawDescriptors.length > 0) {
             const labeled = rawDescriptors.map(([id, descStr]) => {
                 const arr = JSON.parse(descStr);
@@ -155,7 +154,7 @@
 
             const detections = await faceService.getAllFaces(videoEl);
 
-            let matchedEmployee: Employee | null = null;
+            let matchedEmployee: KioskEmployeeSummary | null = null;
             for (const d of detections) {
                 const match = faceMatcher.findBestMatch(d.descriptor);
                 if (match.label === 'unknown' || match.distance >= MATCH_DISTANCE_THRESHOLD) continue;
@@ -222,7 +221,7 @@
         return 'Good evening';
     }
 
-    function initials(emp: Employee): string {
+    function initials(emp: KioskEmployeeSummary): string {
         return `${emp.firstName?.charAt(0) ?? ''}${emp.lastName?.charAt(0) ?? ''}`.toUpperCase();
     }
 
