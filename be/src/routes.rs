@@ -1,6 +1,7 @@
 use axum::{Router, routing::get};
 
 use crate::api::{
+    api_tokens::routes::api_token_routes,
     attendance::routes::attendance_routes, auth::routes::auth_routes,
     calendar::routes::calendar_routes, campaigns::routes::campaign_routes,
     client_management::routes::client_management_routes,
@@ -121,6 +122,7 @@ pub fn build_routes(hub: std::sync::Arc<crate::ws::hub::Hub>) -> Router {
         .nest("/meetings", meetings_routes(hub.clone()))
         .nest("/notification-settings", notification_settings_routes())
         .nest("/notifications", notifications_routes())
+        .nest("/api-tokens", api_token_routes())
         .nest("/mobile", mobile_routes())
         .layer(axum::Extension(hub.clone()))
         .route_layer(axum::middleware::from_fn(

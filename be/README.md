@@ -73,3 +73,12 @@ To populate the database with initial data (Admin user, Roles, Permissions, etc.
 - The `/calendar` endpoints support personal, department, and company events, with personal events restricted to the creator and shared events guarded by calendar permissions.
 - The `/employees/me` endpoint returns the current user's employee record for attendance workflows and is protected by `/admin/hr/attendance` permissions.
 - `/employees/kiosk/roster` and `/employees/kiosk/descriptors` are authenticated-only (no RBAC permission grant required), so any logged-in employee can use the face-recognition attendance kiosk. They return a minimal, non-privileged subset of active-employee data (id, employee code, name, department, and face descriptor) — no email, phone, salary, or manager info — unlike the HR-admin-gated `/employees` and `/employees/config/descriptors` endpoints they are separate from.
+
+## API tokens
+
+Personal API tokens let a script or an AI agent (for example Claude) use the project API without an interactive login.
+
+- Generate one in the web app under **Settings → API Tokens**, or with `POST /api-tokens` (`{"name": "Claude", "expiresInDays": 90}`; omit `expiresInDays` for no expiry). The secret (`ubk_...`) is returned **once**; only its SHA-256 is stored.
+- Send it as `Authorization: Bearer ubk_...`. A token acts as its owner, so it has exactly that user's RBAC permissions and project memberships.
+- Tokens are accepted on **`/projects` only** (projects, members, board, sprints, and cards of any type — `card_type` of `epic`, `story`, `task`, ... with `parent_id` for hierarchy — plus assignees, comments, attachments and links). Anywhere else they get `403`, so a leaked token cannot mint more tokens or touch HR/payroll data.
+- `GET /api-tokens` lists your active tokens (prefix, expiry, last used); `DELETE /api-tokens/{id}` revokes one immediately. These endpoints need a normal login session.

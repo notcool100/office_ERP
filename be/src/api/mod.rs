@@ -1,3 +1,4 @@
+pub mod api_tokens;
 pub mod attendance;
 pub mod payroll;
 pub mod campaigns;

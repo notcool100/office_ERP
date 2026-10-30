@@ -5,7 +5,10 @@ use axum::{
     response::IntoResponse,
 };
 
-use crate::{api::auth::jwt::validate_token, errors::AuthError};
+use crate::{
+    api::{api_tokens::service as api_tokens, auth::jwt::validate_token},
+    errors::AuthError,
+};
 
 pub async fn authenticate(mut req: Request<Body>, next: Next) -> Response<Body> {
     let auth_header = req.headers().get(http::header::AUTHORIZATION);
@@ -42,19 +45,8 @@ pub async fn authenticate(mut req: Request<Body>, next: Next) -> Response<Body> 
             .into_response();
         }
     };
-    let token_data = match validate_token(&token) {
-        Some(data) => data,
-        None => {
-            return AuthError {
-                message: "Unable to decode token".to_string(),
-                status_code: StatusCode::UNAUTHORIZED,
-            }
-            .into_response();
-        }
-    };
-
     let db = match req.extensions().get::<crate::db::Db>() {
-        Some(db) => db,
+        Some(db) => db.clone(),
         None => {
             return AuthError {
                 message: "Database connection missing".to_string(),
@@ -64,7 +56,41 @@ pub async fn authenticate(mut req: Request<Body>, next: Next) -> Response<Body> 
         }
     };
 
-    let current_user = match crate::api::user::service::get_by_id(db, token_data.sub).await {
+    let user_id = if token.starts_with(api_tokens::TOKEN_PREFIX) {
+        // API tokens are for automation against the project API only; they
+        // can't mint further tokens or reach anything else in the ERP.
+        let path = req.uri().path();
+        if path != "/projects" && !path.starts_with("/projects/") {
+            return AuthError {
+                message: "API tokens can only be used with /projects".to_string(),
+                status_code: StatusCode::FORBIDDEN,
+            }
+            .into_response();
+        }
+        match api_tokens::authenticate(&db, &token).await {
+            Ok(Some(id)) => id,
+            _ => {
+                return AuthError {
+                    message: "Invalid, expired or revoked API token".to_string(),
+                    status_code: StatusCode::UNAUTHORIZED,
+                }
+                .into_response();
+            }
+        }
+    } else {
+        match validate_token(&token) {
+            Some(data) => data.sub,
+            None => {
+                return AuthError {
+                    message: "Unable to decode token".to_string(),
+                    status_code: StatusCode::UNAUTHORIZED,
+                }
+                .into_response();
+            }
+        }
+    };
+
+    let current_user = match crate::api::user::service::get_by_id(&db, user_id).await {
         Ok(user) => user,
         Err(_) => {
             return AuthError {
